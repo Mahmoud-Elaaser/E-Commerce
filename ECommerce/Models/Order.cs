@@ -19,7 +19,7 @@ namespace ECommerce.Models
             UserEmail = userEmail;
             OrderAddress = address;
             DeliveryMethod = deliveryMethod;
-            Items = items;
+            OrderItems = items;
             SubTotal = subTotal;
             PaymentIntentId = paymentIntentId;
             OrderStatus = OrderStatus.Pending;
@@ -32,7 +32,7 @@ namespace ECommerce.Models
         public Address OrderAddress { get; set; } = default!;
 
         public DeliveryMethod DeliveryMethod { get; set; }
-        public int DeliveryMethodId { get; set; }
+        public int? DeliveryMethodId { get; set; }
 
         public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
 
@@ -44,6 +44,6 @@ namespace ECommerce.Models
 
         public decimal Total => SubTotal + DeliveryMethod.Cost;
 
-        public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 }
