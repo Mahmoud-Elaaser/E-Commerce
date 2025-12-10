@@ -2,7 +2,7 @@ namespace ECommerce
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +16,7 @@ namespace ECommerce
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
+            await app.SeedDbAsync();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())

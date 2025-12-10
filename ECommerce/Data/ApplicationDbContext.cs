@@ -1,5 +1,4 @@
 ﻿using ECommerce.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +21,7 @@ namespace ECommerce.Data
 
         override protected void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<DeliveryMethod>()
                 .Property(d => d.Cost)
@@ -45,8 +45,6 @@ namespace ECommerce.Data
                    .HasColumnType("decimal(18,2)");
 
 
-            //modelBuilder.Entity<Order>().OwnsOne(order => order.OrderAddress, address => address.WithOwner());
-
             modelBuilder.Entity<Order>().HasMany(o => o.OrderItems)
                    .WithOne()
                    .OnDelete(DeleteBehavior.Cascade);
@@ -62,10 +60,6 @@ namespace ECommerce.Data
 
             modelBuilder.Entity<Address>().ToTable("Adresses");
 
-            modelBuilder.Ignore<IdentityUserLogin<string>>();
-            modelBuilder.Ignore<IdentityUserRole<string>>();
-            modelBuilder.Ignore<IdentityUserClaim<string>>();
-            modelBuilder.Ignore<IdentityUserToken<string>>();
         }
     }
 }
