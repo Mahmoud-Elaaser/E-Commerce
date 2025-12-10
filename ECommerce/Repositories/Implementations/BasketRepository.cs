@@ -58,5 +58,16 @@ namespace ECommerce.Repositories.Implementations
             return result != null;
 
         }
+
+
+
+
+        public async Task<Basket?> CreateOrUpdateBasketAsync(Basket basket, TimeSpan? timeToLive = null)
+        {
+            var jsonBasket = JsonSerializer.Serialize(basket);
+            var isCreatedorUpdate = await _database.StringSetAsync(basket.Id, jsonBasket, timeToLive ?? TimeSpan.FromDays(30));
+
+            return isCreatedorUpdate ? await GetBasketAsync(basket.Id) : null;
+        }
     }
 }

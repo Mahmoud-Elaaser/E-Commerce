@@ -2,48 +2,44 @@
 
 namespace ECommerce.Models
 {
-    public class Order
+    public class Order : BaseEntity<Guid>
     {
         public Order()
         {
-        }
 
-        public Order(
-            string userEmail,
-            Address address,
-            DeliveryMethod deliveryMethod,
-            ICollection<OrderItem> items,
-            decimal subTotal,
-            string paymentIntentId)
+        }
+        public Order(string userEmail,
+            Address shippingAddress,
+            ICollection<OrderItem> orderItems,
+            DeliveryMethod deliveryMethod, decimal subtotal, string paymentIntentId)
         {
             UserEmail = userEmail;
-            OrderAddress = address;
+            ShippingAddress = shippingAddress;
+            OrderItems = orderItems;
             DeliveryMethod = deliveryMethod;
-            OrderItems = items;
-            SubTotal = subTotal;
+            Subtotal = subtotal;
             PaymentIntentId = paymentIntentId;
-            OrderStatus = OrderStatus.Pending;
-            OrderDate = DateTimeOffset.UtcNow;
         }
 
-        public Guid Id { get; set; } = Guid.NewGuid();
+        public string UserEmail { get; set; } = string.Empty;
+        public Address ShippingAddress { get; set; }
 
-        public string UserEmail { get; set; } = default!;
-        public Address OrderAddress { get; set; } = default!;
+        public ICollection<OrderItem> OrderItems { get; set; }
 
+
+        public OrderStatus PaymentStatus { get; set; } = OrderStatus.Pending;
         public DeliveryMethod DeliveryMethod { get; set; }
         public int? DeliveryMethodId { get; set; }
 
-        public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
+        // OrderItem.Price * OrderItem.Quantity
+        // Total == Subtotal + DeliveryMethod.Price [ Derieved Atribute ] --> DTO OR Mapping Profile
+        public decimal Subtotal { get; set; }
+        public string PaymentIntentId { get; set; }
 
-        public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.Now;
 
-        public string PaymentIntentId { get; set; } = default!;
 
-        public decimal SubTotal { get; set; }
 
-        public decimal Total => SubTotal + DeliveryMethod.Cost;
 
-        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 }

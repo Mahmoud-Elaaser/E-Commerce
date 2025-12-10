@@ -1,6 +1,6 @@
 ﻿namespace ECommerce.Models
 {
-    public class DeliveryMethod
+    public class DeliveryMethod : BaseEntity<int>
     {
         public DeliveryMethod() { }
 
@@ -12,7 +12,7 @@
             Cost = cost;
         }
 
-        public int Id { get; set; }
+        //public int Id { get; set; }
 
         public string ShortName { get; set; } = default!;
         public string Description { get; set; } = default!;

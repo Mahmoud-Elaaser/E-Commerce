@@ -55,7 +55,7 @@ namespace ECommerce.Data
                    .HasForeignKey(o => o.DeliveryMethodId)
                    .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Order>().Property(o => o.SubTotal)
+            modelBuilder.Entity<Order>().Property(o => o.Subtotal)
                    .HasColumnType("decimal(18,2)");
 
             modelBuilder.Entity<Address>().ToTable("Adresses");

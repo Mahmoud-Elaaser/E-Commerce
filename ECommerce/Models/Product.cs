@@ -1,8 +1,8 @@
 ﻿namespace ECommerce.Models
 {
-    public class Product
+    public class Product : BaseEntity<int>
     {
-        public int Id { get; set; }
+        //public int Id { get; set; }
 
         public string Name { get; set; } = default!;
         public string Description { get; set; } = default!;
