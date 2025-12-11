@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using ECommerce.DTOs.Basket;
 using ECommerce.Enums;
+using ECommerce.Exceptions;
 using ECommerce.Models;
 using ECommerce.Repositories.Interfaces;
 using ECommerce.Services.Interfaces;
@@ -9,154 +10,221 @@ using Stripe;
 
 namespace ECommerce.Services.Implementations
 {
-    internal class PaymentService(IConfiguration configuration
-        , IBasketRepository basketRepository, IUnitOfWork unitOfWork, IMapper mapper) : IPaymentService
+    public class PaymentService : IPaymentService
     {
-        #region Part 2 Payment Service Create Payment Intent
-        // 0. Install stripe Package
-        // 1. Set Up Stripe Api key [Secret Key]
-        //  2. Get Basket by Id From Repo
-        // 3. Validate Basket Items and Prices == Product.Price to Get real Price from Data base
-        // 4. Get Delivery Method And Shipping Price
-        // 5 . Retrive Delivery Method From Db and assign Price Of Basket [Shipping Price] = DeliveryMethod.ShippingPrice
-        // 6. Total = SubTotal + ShippingPrice [(Items.Price * Items.Quantity)  + basket.ShppingPrice] ==> Dolar --> Cent * 100
-        // 7. Save Changes to Basket 
-        // 8. Mapping Basket --> BasketDTO 
+        private readonly IConfiguration _configuration;
+        private readonly IBasketRepository _basketRepository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
+        private readonly ILogger<PaymentService> _logger;
+
+        public PaymentService(
+            IConfiguration configuration,
+            IBasketRepository basketRepository,
+            IUnitOfWork unitOfWork,
+            IMapper mapper,
+            ILogger<PaymentService> logger)
+        {
+            _configuration = configuration;
+            _basketRepository = basketRepository;
+            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+            _logger = logger;
+        }
+
         public async Task<BasketDTO> CreateOrUpdatePaymentIntentAsync(string basketId)
         {
-            // Configure Stripe Api Key Using Secret Key From AppSettings
-            StripeConfiguration.ApiKey = configuration.GetSection("StripeSetings")["SecretKey"];
+            var secretKey = _configuration.GetSection("StripeSettings")["SecretKey"];
+            if (string.IsNullOrEmpty(secretKey))
+                throw new StripeConfigurationException("SecretKey");
 
-            // Retrive Basket Using BasketId --> From Basket Repo
+            StripeConfiguration.ApiKey = secretKey;
 
-            var basket = await basketRepository.GetBasketAsync(basketId) ?? throw new KeyNotFoundException(basketId);
+            var basket = await _basketRepository.GetBasketAsync(basketId);
+            if (basket == null)
+                throw new EmptyBasketException(basketId);
 
+            /// Update product prices from database
             foreach (var item in basket.Items)
             {
-                // Get Product From Db ==>  to Validate Price ( Validate Price that End User Enter was Correct   
-                var product = await unitOfWork.GetRepository<Models.Product, int>()
-                                    .GetAsync(item.Id) ?? throw new KeyNotFoundException(item.Id.ToString());
+                var product = await _unitOfWork.GetRepository<Models.Product, int>()
+                    .GetAsync(item.Id);
 
-                // Update item.price == product.Price in product table in database [ Real Price ]
+                if (product == null)
+                    throw new ProductNotFoundException(item.Id);
+
                 item.Price = product.Price;
-
-
             }
 
-            // check if DeliveryMethod Is Selected Or not
-            if (!basket.DeliveryMethodId.HasValue) throw new Exception("Delivery Method Is Not Selected");
+            if (!basket.DeliveryMethodId.HasValue)
+                throw new DeliveryMethodNotSelectedException(basketId);
 
-            // Retrive Delivery Method From Db
-            var deliveryMethod = await unitOfWork.GetRepository<DeliveryMethod, int>()
-                                        .GetAsync(basket.DeliveryMethodId.Value)
-                                        ?? throw new KeyNotFoundException(basket.DeliveryMethodId.Value.ToString());
-            // Assign Shipping Price to Basket
+            var deliveryMethod = await _unitOfWork.GetRepository<DeliveryMethod, int>()
+                .GetAsync(basket.DeliveryMethodId.Value);
+
+            if (deliveryMethod == null)
+                throw new DeliveryMethodNotFoundException(basket.DeliveryMethodId.Value);
+
             basket.ShippingPrice = deliveryMethod.Cost;
 
-            // Calculate Total Amount [ SubTotal + ShippingPrice ]
+            /// Calculate total amount (convert to cents for Stripe)
             var totalAmount = (long)((basket.Items.Sum(i => i.Price * i.Quantity) + basket.ShippingPrice) * 100);
 
             var stripeService = new PaymentIntentService();
 
-            // If You want To Create Or Update PaymentIntent    
-
-            if (string.IsNullOrEmpty(basket.PaymentIntentId))
+            try
             {
-                // Create New Payment Intent
-                var options = new PaymentIntentCreateOptions
+                if (string.IsNullOrEmpty(basket.PaymentIntentId))
                 {
-                    Amount = totalAmount,
-                    Currency = "USD",
-                    PaymentMethodTypes = new List<string> { "card" }
-                };
-                var paymentIntent = await stripeService.CreateAsync(options);
-                // Assign PaymentIntentId And ClientSecret to Basket
-                basket.PaymentIntentId = paymentIntent.Id;
-                basket.ClientSecret = paymentIntent.ClientSecret;
+                    var options = new PaymentIntentCreateOptions
+                    {
+                        Amount = totalAmount,
+                        Currency = "usd",
+                        PaymentMethodTypes = new List<string> { "card" }
+                    };
+
+                    var paymentIntent = await stripeService.CreateAsync(options);
+
+                    basket.PaymentIntentId = paymentIntent.Id;
+                    basket.ClientSecret = paymentIntent.ClientSecret;
+
+                    _logger.LogInformation(
+                        "Created payment intent {PaymentIntentId} for basket {BasketId}",
+                        paymentIntent.Id, basketId);
+                }
+                else
+                {
+                    var updateOptions = new PaymentIntentUpdateOptions
+                    {
+                        Amount = totalAmount
+                    };
+
+                    await stripeService.UpdateAsync(basket.PaymentIntentId, updateOptions);
+
+                    _logger.LogInformation(
+                        "Updated payment intent {PaymentIntentId} for basket {BasketId}",
+                        basket.PaymentIntentId, basketId);
+                }
             }
-            else
+            catch (StripeException ex)
             {
-                // Update Payment Intent
-                // 1. Admin Changes Product Prices [database]
-                // 2 . User Change Delivery Method
-                // 3. User Add Or Remove Items From Basket
+                _logger.LogError(ex,
+                    "Stripe API error while processing payment intent for basket {BasketId}", basketId);
 
-                var updateoptions = new PaymentIntentUpdateOptions
-                {
-                    Amount = totalAmount
-                };
-                await stripeService.UpdateAsync(basket.PaymentIntentId, updateoptions);
+                if (string.IsNullOrEmpty(basket.PaymentIntentId))
+                    throw new PaymentIntentCreationException(basketId, ex.Message, ex);
+                else
+                    throw new PaymentIntentUpdateException(basket.PaymentIntentId, ex.Message, ex);
             }
-            // Save Changes to Basket
-            await basketRepository.CreateOrUpdateBasketAsync(basket);
 
-            // Map Basket --> BasketDTO
-            return mapper.Map<BasketDTO>(basket);
+            await _basketRepository.CreateOrUpdateBasketAsync(basket);
 
+            return _mapper.Map<BasketDTO>(basket);
         }
 
         public async Task UpdateOrderPaymentStatusAsync(string json, string header)
         {
-            var endpointSecret = configuration.GetSection("StripeSetings")["EndPointSecret"];
+            var endpointSecret = _configuration.GetSection("StripeSettings")["EndpointSecret"];
+            if (string.IsNullOrEmpty(endpointSecret))
+                throw new StripeConfigurationException("EndpointSecret");
 
-            var stripeEvent = EventUtility.ParseEvent(json, throwOnApiVersionMismatch: false);
+            Event stripeEvent;
 
-
-            stripeEvent = EventUtility.ConstructEvent(json, header, endpointSecret, throwOnApiVersionMismatch: false);
-            var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-            // Handle the event
-            // If on SDK version < 46, use class Events instead of EventTypes
-            switch (stripeEvent.Type)
+            try
             {
-                case EventTypes.PaymentIntentSucceeded:
-                    await UpdatePaymentIntentSucceeded(paymentIntent!.Id);
-                    break;
-                case EventTypes.PaymentIntentPaymentFailed:
-                    await UpdatePaymentIntentFailed(paymentIntent!.Id);
-                    break;
-
-                default:
-                    // Unexpected event type
-                    Console.WriteLine("Unhandled event type: {0}", stripeEvent.Type);
-                    break;
+                stripeEvent = EventUtility.ConstructEvent(
+                    json,
+                    header,
+                    endpointSecret,
+                    throwOnApiVersionMismatch: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to construct Stripe webhook event");
+                throw new InvalidPaymentWebhookException("Failed to verify webhook signature", ex);
             }
 
+            var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
+            if (paymentIntent == null)
+            {
+                _logger.LogWarning("Webhook event data is not a PaymentIntent. Type: {EventType}",
+                    stripeEvent.Type);
+                throw new InvalidPaymentWebhookException(
+                    $"Expected PaymentIntent but received {stripeEvent.Data.Object?.GetType().Name}");
+            }
 
+            try
+            {
+                switch (stripeEvent.Type)
+                {
+                    case EventTypes.PaymentIntentSucceeded:
+                        _logger.LogInformation(
+                            "Processing payment success for PaymentIntent {PaymentIntentId}",
+                            paymentIntent.Id);
+                        await UpdatePaymentIntentSucceededAsync(paymentIntent.Id);
+                        break;
 
-            throw new NotImplementedException();
+                    case EventTypes.PaymentIntentPaymentFailed:
+                        _logger.LogWarning(
+                            "Processing payment failure for PaymentIntent {PaymentIntentId}",
+                            paymentIntent.Id);
+                        await UpdatePaymentIntentFailedAsync(paymentIntent.Id);
+                        break;
+
+                    default:
+                        _logger.LogInformation(
+                            "Unhandled Stripe event type: {EventType}", stripeEvent.Type);
+                        break;
+                }
+            }
+            catch (OrderNotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error updating order payment status for PaymentIntent {PaymentIntentId}",
+                    paymentIntent.Id);
+                throw new InvalidPaymentWebhookException(
+                    $"Failed to update order status for payment intent {paymentIntent.Id}", ex);
+            }
         }
 
-        private async Task UpdatePaymentIntentFailed(string PaymentIntentId)
+        private async Task UpdatePaymentIntentFailedAsync(string paymentIntentId)
         {
-            var orderRepo = unitOfWork.GetRepository<Order, Guid>();
+            var orderRepo = _unitOfWork.GetRepository<Order, Guid>();
 
+            var order = await orderRepo.GetAsync(
+                new OrderWithPaymentIntentSpecifications(paymentIntentId));
 
-            var order = await orderRepo
-                              .GetAsync(new OrderWithPaymentIntentSpecifications(PaymentIntentId))
-                              ?? throw new Exception();
+            if (order == null)
+                throw new OrderNotFoundException(paymentIntentId);
 
             order.PaymentStatus = OrderStatus.PaymentFailed;
 
             orderRepo.Update(order);
-            await unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync();
 
+            _logger.LogInformation("Updated order {OrderId} status to PaymentFailed", order.Id);
         }
 
-        private async Task UpdatePaymentIntentSucceeded(string PaymentIntentId)
+        private async Task UpdatePaymentIntentSucceededAsync(string paymentIntentId)
         {
-            var orderRepo = unitOfWork.GetRepository<Order, Guid>();
+            var orderRepo = _unitOfWork.GetRepository<Order, Guid>();
 
+            var order = await orderRepo.GetAsync(
+                new OrderWithPaymentIntentSpecifications(paymentIntentId));
 
-            var order = await orderRepo
-                              .GetAsync(new OrderWithPaymentIntentSpecifications(PaymentIntentId))
-                              ?? throw new Exception();
+            if (order == null)
+                throw new OrderNotFoundException(paymentIntentId);
 
             order.PaymentStatus = OrderStatus.PaymentReceived;
 
             orderRepo.Update(order);
-            await unitOfWork.SaveChangesAsync();
-        }
+            await _unitOfWork.SaveChangesAsync();
 
-        #endregion
+            _logger.LogInformation("Updated order {OrderId} status to PaymentReceived", order.Id);
+        }
     }
 }
