@@ -1,4 +1,5 @@
 ﻿using ECommerce.Data;
+using ECommerce.Helpers;
 using ECommerce.Models;
 using ECommerce.Repositories.Implementations;
 using ECommerce.Repositories.Interfaces;
@@ -11,6 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using System.Text;
+using FileService = ECommerce.Helpers.FileService;
+using ProductService = ECommerce.Services.Implementations.ProductService;
 
 namespace ECommerce
 {
@@ -36,6 +39,16 @@ namespace ECommerce
             services.AddScoped<IBasketRepository, BasketRepository>();
             services.AddScoped<IBasketService, BasketService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IProductService, ProductService>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IFileService, FileService>();
+
+            /// AutoMapper Configuration
+            services.AddAutoMapper(config =>
+            {
+                config.AllowNullCollections = true;
+                config.AllowNullDestinationValues = true;
+            }, typeof(Program).Assembly);
 
 
             services.Configure<JwtOptions>(configuration.GetSection("JwtOptions"));

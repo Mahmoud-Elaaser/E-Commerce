@@ -53,8 +53,8 @@ namespace ECommerce.Services.Implementations
             var orderItems = new List<OrderItem>();
             foreach (var item in basket.Items)
             {
-                var product = await _unitOfWork.GetRepository<Models.Product, int>()
-                    .GetAsync(item.Id);
+                var product = await _unitOfWork.Repository<Product>()
+                    .GetByIdAsync(item.Id);
 
                 if (product == null)
                 {
@@ -71,8 +71,8 @@ namespace ECommerce.Services.Implementations
                 "Created {ItemCount} order items for basket {BasketId}",
                 orderItems.Count, request.BasketId);
 
-            var deliveryMethod = await _unitOfWork.GetRepository<DeliveryMethod, int>()
-                .GetAsync(request.DeliveryMethodId);
+            var deliveryMethod = await _unitOfWork.Repository<DeliveryMethod>()
+                .GetByIdAsync(request.DeliveryMethodId);
 
             if (deliveryMethod == null)
             {
@@ -83,9 +83,9 @@ namespace ECommerce.Services.Implementations
             }
 
             /// Handle existing orders with same payment intent
-            var orderRepo = _unitOfWork.GetRepository<Models.Order, Guid>();
-            var existingOrder = await orderRepo.GetAsync(
-                new OrderWithPaymentIntentSpecifications(basket.PaymentIntentId));
+            var orderRepo = _unitOfWork.Repository<Order>();
+            var existingOrder = (await orderRepo.ListAsync(
+                new OrderWithPaymentIntentSpecifications(basket.PaymentIntentId))).FirstOrDefault();
 
             if (existingOrder != null)
             {
@@ -103,7 +103,7 @@ namespace ECommerce.Services.Implementations
                     userEmail, address, orderItems, deliveryMethod, subTotal, basket.PaymentIntentId);
 
                 await orderRepo.AddAsync(order);
-                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CompleteAsync();
 
                 _logger.LogInformation(
                     "Successfully created order {OrderId} for user {UserEmail} with total {Total:C}",
@@ -126,8 +126,8 @@ namespace ECommerce.Services.Implementations
 
             try
             {
-                var deliveryMethods = await _unitOfWork.GetRepository<DeliveryMethod, int>()
-                    .GetAllAsync();
+                var deliveryMethods = await _unitOfWork.Repository<DeliveryMethod>()
+                    .ListAllAsync();
 
                 var mappedDeliveryMethods = _mapper.Map<IEnumerable<DeliveryMethodResult>>(deliveryMethods);
 
@@ -148,8 +148,8 @@ namespace ECommerce.Services.Implementations
         {
             _logger.LogDebug("Retrieving order {OrderId}", id);
 
-            var order = await _unitOfWork.GetRepository<Models.Order, Guid>()
-                .GetAsync(new OrderWithIncludeSpecifications(id));
+            var order = (await _unitOfWork.Repository<Order>()
+                .ListAsync(new OrderWithIncludeSpecifications(id))).FirstOrDefault();
 
             if (order == null)
             {
@@ -168,8 +168,8 @@ namespace ECommerce.Services.Implementations
 
             try
             {
-                var orders = await _unitOfWork.GetRepository<Models.Order, Guid>()
-                    .GetAllAsync(new OrderWithIncludeSpecifications(email));
+                var orders = await _unitOfWork.Repository<Order>()
+                    .ListAsync(new OrderWithIncludeSpecifications(email));
 
                 var mappedOrders = _mapper.Map<IEnumerable<OrderResult>>(orders);
 

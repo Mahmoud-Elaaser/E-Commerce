@@ -2,22 +2,22 @@
 
 namespace ECommerce.Specifications
 {
-    internal class OrderWithIncludeSpecifications : BaseSpecifications<Order, Guid>
+    internal class OrderWithIncludeSpecifications : BaseSpecification<Order>
     {
         public OrderWithIncludeSpecifications(Guid id)
             : base(o => o.Id == id)
         {
-            AddIncludes(o => o.DeliveryMethod);
-            AddIncludes(o => o.OrderItems);
+            AddInclude(o => o.DeliveryMethod);
+            AddInclude(o => o.OrderItems);
         }
 
         public OrderWithIncludeSpecifications(string email)
            : base(o => o.UserEmail == email)
         {
-            AddIncludes(o => o.DeliveryMethod);
-            AddIncludes(o => o.OrderItems);
+            AddInclude(o => o.DeliveryMethod);
+            AddInclude(o => o.OrderItems);
 
-            SetOrderBy(o => o.OrderDate);
+            AddOrderByDescending(o => o.OrderDate);
         }
 
     }

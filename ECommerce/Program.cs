@@ -15,6 +15,9 @@ namespace ECommerce
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+
+            builder.Services.AddHttpContextAccessor();
+
             var app = builder.Build();
             await app.SeedDbAsync();
 
@@ -26,6 +29,7 @@ namespace ECommerce
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
             app.UseAuthorization();
 

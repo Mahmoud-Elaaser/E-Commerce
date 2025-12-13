@@ -1,28 +1,20 @@
-﻿using ECommerce.Models;
+﻿using System.Linq.Expressions;
 
 namespace ECommerce.Repositories.Interfaces
 {
-    public interface IGenericRepository<TEntity, TKey> where TEntity : BaseEntity<TKey>
+    public interface IGenericRepository<T> where T : class
     {
+        Task<T> GetByIdAsync(int id);
+        Task<IReadOnlyList<T>> ListAllAsync();
+        Task<IReadOnlyList<T>> ListAsync(ISpecification<T> spec);
+        Task<int> CountAsync(ISpecification<T> spec);
+        Task<int> CountAsync(Expression<Func<T, bool>> predicate);
+        Task AddAsync(T entity);
+        void Update(T entity);
+        void Delete(T entity);
+        Task<T> FindAsync(Expression<Func<T, bool>> predicate);
+        Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
+        Task<IReadOnlyList<T>> GetAllPredicated(Expression<Func<T, bool>> predicate, string[] includes);
 
-        // Get All 
-        Task<IEnumerable<TEntity>> GetAllAsync(bool asNoTracking = false);
-        //Get By Id
-        Task<TEntity?> GetAsync(TKey id);
-
-        #region Specifications
-        // Get All 
-        Task<IEnumerable<TEntity>> GetAllAsync(ISpecifications<TEntity, TKey> specifications);
-        //Get By Id
-        Task<TEntity?> GetAsync(ISpecifications<TEntity, TKey> specifications);
-        Task<int> CountAsync(ISpecifications<TEntity, TKey> specifications);
-
-        #endregion
-        //Create
-        Task AddAsync(TEntity entity);
-        //Update
-        void Update(TEntity entity);
-        //Delete
-        void Delete(TEntity entity);
     }
 }

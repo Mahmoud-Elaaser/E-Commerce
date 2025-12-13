@@ -2,7 +2,7 @@
 
 namespace ECommerce.Models
 {
-    public class Order : BaseEntity<Guid>
+    public class Order
     {
         public Order()
         {
@@ -11,32 +11,29 @@ namespace ECommerce.Models
         public Order(string userEmail,
             Address shippingAddress,
             ICollection<OrderItem> orderItems,
-            DeliveryMethod deliveryMethod, decimal subtotal, string paymentIntentId)
+            DeliveryMethod deliveryMethod, decimal subTotal, string paymentIntentId)
         {
             UserEmail = userEmail;
             ShippingAddress = shippingAddress;
             OrderItems = orderItems;
             DeliveryMethod = deliveryMethod;
-            Subtotal = subtotal;
+            SubTotal = subTotal;
             PaymentIntentId = paymentIntentId;
         }
 
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string UserEmail { get; set; } = string.Empty;
         public Address ShippingAddress { get; set; }
-
-        public ICollection<OrderItem> OrderItems { get; set; }
-
 
         public OrderStatus PaymentStatus { get; set; } = OrderStatus.Pending;
         public DeliveryMethod DeliveryMethod { get; set; }
         public int? DeliveryMethodId { get; set; }
 
-        // OrderItem.Price * OrderItem.Quantity
-        // Total == Subtotal + DeliveryMethod.Price [ Derieved Atribute ] --> DTO OR Mapping Profile
-        public decimal Subtotal { get; set; }
+        public decimal SubTotal { get; set; }
         public string PaymentIntentId { get; set; }
 
         public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.Now;
+        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 
 
 

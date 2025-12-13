@@ -47,8 +47,8 @@ namespace ECommerce.Services.Implementations
             /// Update product prices from database
             foreach (var item in basket.Items)
             {
-                var product = await _unitOfWork.GetRepository<Models.Product, int>()
-                    .GetAsync(item.Id);
+                var product = await _unitOfWork.Repository<Models.Product>()
+                    .GetByIdAsync(item.Id);
 
                 if (product == null)
                     throw new ProductNotFoundException(item.Id);
@@ -59,8 +59,8 @@ namespace ECommerce.Services.Implementations
             if (!basket.DeliveryMethodId.HasValue)
                 throw new DeliveryMethodNotSelectedException(basketId);
 
-            var deliveryMethod = await _unitOfWork.GetRepository<DeliveryMethod, int>()
-                .GetAsync(basket.DeliveryMethodId.Value);
+            var deliveryMethod = await _unitOfWork.Repository<DeliveryMethod>()
+                .GetByIdAsync(basket.DeliveryMethodId.Value);
 
             if (deliveryMethod == null)
                 throw new DeliveryMethodNotFoundException(basket.DeliveryMethodId.Value);
@@ -193,10 +193,10 @@ namespace ECommerce.Services.Implementations
 
         private async Task UpdatePaymentIntentFailedAsync(string paymentIntentId)
         {
-            var orderRepo = _unitOfWork.GetRepository<Order, Guid>();
+            var orderRepo = _unitOfWork.Repository<Order>();
 
-            var order = await orderRepo.GetAsync(
-                new OrderWithPaymentIntentSpecifications(paymentIntentId));
+            var order = (await orderRepo.ListAsync(
+                new OrderWithPaymentIntentSpecifications(paymentIntentId))).FirstOrDefault();
 
             if (order == null)
                 throw new OrderNotFoundException(paymentIntentId);
@@ -204,17 +204,17 @@ namespace ECommerce.Services.Implementations
             order.PaymentStatus = OrderStatus.PaymentFailed;
 
             orderRepo.Update(order);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CompleteAsync();
 
             _logger.LogInformation("Updated order {OrderId} status to PaymentFailed", order.Id);
         }
 
         private async Task UpdatePaymentIntentSucceededAsync(string paymentIntentId)
         {
-            var orderRepo = _unitOfWork.GetRepository<Order, Guid>();
+            var orderRepo = _unitOfWork.Repository<Order>();
 
-            var order = await orderRepo.GetAsync(
-                new OrderWithPaymentIntentSpecifications(paymentIntentId));
+            var order = (await orderRepo.ListAsync(
+                new OrderWithPaymentIntentSpecifications(paymentIntentId))).FirstOrDefault();
 
             if (order == null)
                 throw new OrderNotFoundException(paymentIntentId);
@@ -222,7 +222,7 @@ namespace ECommerce.Services.Implementations
             order.PaymentStatus = OrderStatus.PaymentReceived;
 
             orderRepo.Update(order);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CompleteAsync();
 
             _logger.LogInformation("Updated order {OrderId} status to PaymentReceived", order.Id);
         }
