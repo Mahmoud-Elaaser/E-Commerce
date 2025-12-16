@@ -154,7 +154,7 @@ namespace ECommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DeliveryMethods", (string)null);
+                    b.ToTable("DeliveryMethods");
                 });
 
             modelBuilder.Entity("ECommerce.Models.Order", b =>
@@ -166,18 +166,18 @@ namespace ECommerce.Migrations
                     b.Property<int?>("DeliveryMethodId")
                         .HasColumnType("int");
 
-                    b.Property<int>("OrderAddressId")
-                        .HasColumnType("int");
-
                     b.Property<DateTimeOffset>("OrderDate")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("OrderStatus")
-                        .HasColumnType("int");
 
                     b.Property<string>("PaymentIntentId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PaymentStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ShippingAddressId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("SubTotal")
                         .HasColumnType("decimal(18,2)");
@@ -190,9 +190,9 @@ namespace ECommerce.Migrations
 
                     b.HasIndex("DeliveryMethodId");
 
-                    b.HasIndex("OrderAddressId");
+                    b.HasIndex("ShippingAddressId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("ECommerce.Models.OrderItem", b =>
@@ -216,7 +216,7 @@ namespace ECommerce.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("ECommerce.Models.Product", b =>
@@ -231,11 +231,11 @@ namespace ECommerce.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
+                    b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PictureUrl")
+                    b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Price")
@@ -256,7 +256,7 @@ namespace ECommerce.Migrations
 
                     b.HasIndex("ProductTypeId");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
                 });
 
             modelBuilder.Entity("ECommerce.Models.ProductBrand", b =>
@@ -273,7 +273,7 @@ namespace ECommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProductBrands", (string)null);
+                    b.ToTable("ProductBrands");
                 });
 
             modelBuilder.Entity("ECommerce.Models.ProductType", b =>
@@ -290,7 +290,7 @@ namespace ECommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProductTypes", (string)null);
+                    b.ToTable("ProductTypes");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -444,15 +444,15 @@ namespace ECommerce.Migrations
                         .HasForeignKey("DeliveryMethodId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("ECommerce.Models.Address", "OrderAddress")
+                    b.HasOne("ECommerce.Models.Address", "ShippingAddress")
                         .WithMany()
-                        .HasForeignKey("OrderAddressId")
+                        .HasForeignKey("ShippingAddressId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("DeliveryMethod");
 
-                    b.Navigation("OrderAddress");
+                    b.Navigation("ShippingAddress");
                 });
 
             modelBuilder.Entity("ECommerce.Models.OrderItem", b =>
@@ -462,7 +462,7 @@ namespace ECommerce.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.OwnsOne("ECommerce.Models.OrderItem.Product#ECommerce.Models.ProductOrderItem", "Product", b1 =>
+                    b.OwnsOne("ECommerce.Models.ProductOrderItem", "Product", b1 =>
                         {
                             b1.Property<int>("OrderItemId")
                                 .HasColumnType("int");
@@ -480,7 +480,7 @@ namespace ECommerce.Migrations
 
                             b1.HasKey("OrderItemId");
 
-                            b1.ToTable("OrderItems", (string)null);
+                            b1.ToTable("OrderItems");
 
                             b1.WithOwner()
                                 .HasForeignKey("OrderItemId");

@@ -25,6 +25,7 @@ namespace ECommerce
             services.AddDbContext<ApplicationDbContext>(options =>
             {
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+                //options.UseSqlServer(configuration.GetConnectionString("MonsterConnection"));
             });
             services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -42,7 +43,8 @@ namespace ECommerce
             services.AddScoped<IProductService, ProductService>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IFileService, FileService>();
-
+            services.AddScoped<IProductTypeService, ProductTypeService>();
+            services.AddScoped<IProductBrandService, ProductBrandService>();
             /// AutoMapper Configuration
             services.AddAutoMapper(config =>
             {

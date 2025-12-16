@@ -17,16 +17,15 @@ namespace ECommerce
 
 
             builder.Services.AddHttpContextAccessor();
+            builder.WebHost.UseWebRoot("wwwroot");
 
             var app = builder.Build();
             await app.SeedDbAsync();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();

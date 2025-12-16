@@ -83,26 +83,25 @@ namespace ECommerce.Services.Implementations
             }
 
             /// Handle existing orders with same payment intent
-            var orderRepo = _unitOfWork.Repository<Order>();
-            var existingOrder = (await orderRepo.ListAsync(
-                new OrderWithPaymentIntentSpecifications(basket.PaymentIntentId))).FirstOrDefault();
+            var spec = new OrderWithPaymentIntentSpecifications(basket.PaymentIntentId);
+            var existingOrder = await _unitOfWork.Repository<Order>().GetAsyncWithSpec(spec);
 
             if (existingOrder != null)
             {
                 _logger.LogInformation(
                     "Deleting existing order {OrderId} for payment intent {PaymentIntentId}",
                     existingOrder.Id, basket.PaymentIntentId);
-                orderRepo.Delete(existingOrder);
+                _unitOfWork.Repository<Order>().Delete(existingOrder);
             }
 
             try
             {
                 var subTotal = orderItems.Sum(item => item.Price * item.Quantity);
                 var address = _mapper.Map<Address>(request.ShipToAddress);
-                var order = new Models.Order(
+                var order = new Order(
                     userEmail, address, orderItems, deliveryMethod, subTotal, basket.PaymentIntentId);
 
-                await orderRepo.AddAsync(order);
+                await _unitOfWork.Repository<Order>().AddAsync(order);
                 await _unitOfWork.CompleteAsync();
 
                 _logger.LogInformation(
@@ -147,9 +146,8 @@ namespace ECommerce.Services.Implementations
         public async Task<OrderResult> GetOrderByIdAsync(Guid id)
         {
             _logger.LogDebug("Retrieving order {OrderId}", id);
-
-            var order = (await _unitOfWork.Repository<Order>()
-                .ListAsync(new OrderWithIncludeSpecifications(id))).FirstOrDefault();
+            var spec = new OrderWithIncludeSpecifications(id);
+            var order = await _unitOfWork.Repository<Order>().GetAsyncWithSpec(spec);
 
             if (order == null)
             {
@@ -186,9 +184,9 @@ namespace ECommerce.Services.Implementations
             }
         }
 
-        private OrderItem CreateOrderItem(BasketItem item, Models.Product product)
+        private OrderItem CreateOrderItem(BasketItem item, Product product)
         {
-            var productItemOrdered = new ProductOrderItem(product.Id, product.Name, product.PictureUrl);
+            var productItemOrdered = new ProductOrderItem(product.Id, product.Name, product.ImageUrl);
             var orderItem = new OrderItem(productItemOrdered, item.Quantity, product.Price);
             return orderItem;
         }

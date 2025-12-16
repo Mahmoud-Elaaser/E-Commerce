@@ -20,6 +20,11 @@ namespace ECommerce.Repositories.Implementations
             return await _context.Set<T>().FindAsync(id);
         }
 
+        public async Task<T> GetAsyncWithSpec(ISpecification<T> Spec)
+        {
+            return await ApplySpecification(Spec).FirstOrDefaultAsync();
+        }
+
         public async Task<IReadOnlyList<T>> ListAllAsync()
         {
             return await _context.Set<T>().ToListAsync();

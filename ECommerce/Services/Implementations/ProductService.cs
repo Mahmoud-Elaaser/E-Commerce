@@ -7,15 +7,12 @@ using ECommerce.Models;
 using ECommerce.Repositories.Interfaces;
 using ECommerce.Services.Interfaces;
 using ECommerce.Specifications;
-
+using Product = ECommerce.Models.Product;
 namespace ECommerce.Services.Implementations
 {
     public class ProductService : IProductService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly IGenericRepository<Product> _productRepository;
-        private readonly IGenericRepository<ProductBrand> _brandRepository;
-        private readonly IGenericRepository<ProductType> _typeRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<ProductService> _logger;
         private readonly IFileService _fileService;
@@ -27,9 +24,6 @@ namespace ECommerce.Services.Implementations
             IFileService fileService)
         {
             _unitOfWork = unitOfWork;
-            _productRepository = unitOfWork.Repository<Product>();
-            _brandRepository = unitOfWork.Repository<ProductBrand>();
-            _typeRepository = unitOfWork.Repository<ProductType>();
             _mapper = mapper;
             _logger = logger;
             _fileService = fileService;
@@ -39,39 +33,46 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var validationResult = ValidationHelper.ValidateProductDto(addProductDto);
+                var validationResult = await ValidateProductDtoAsync(addProductDto);
                 if (validationResult != null)
                     return validationResult;
 
-                var brand = await _brandRepository.GetByIdAsync(addProductDto.ProductBrandId);
-                if (brand == null)
-                    return ResponseDto.Failure(400, $"Brand with ID {addProductDto.ProductBrandId} does not exist");
+                var existingProduct = await CheckIfProductNameExistsAsync(addProductDto.Name);
+                if (existingProduct)
+                    return ResponseDto.Failure(400, $"Product '{addProductDto.Name}' already exists");
 
-                var type = await _typeRepository.GetByIdAsync(addProductDto.ProductTypeId);
-                if (type == null)
-                    return ResponseDto.Failure(400, $"Type with ID {addProductDto.ProductTypeId} does not exist");
-                //-----------------------------------------------------
-                string pictureUrl = null;
-                if (addProductDto.PictureUrl != null)
+                string? imageUrl = null;
+                if (addProductDto is AddOrUpdateProductDto dtoWithImage &&
+                    dtoWithImage.ImageFile != null)
                 {
-                    var uploadResult = await _fileService.UploadFileAsync(addProductDto.PictureUrl, "products");
+                    if (!_fileService.IsValidImage(dtoWithImage.ImageFile))
+                    {
+                        return ResponseDto.Failure(400, "Invalid image file. Please upload a valid image (JPG, PNG, GIF, BMP, WEBP) under 5MB.");
+                    }
+
+                    var uploadResult = await _fileService.UploadFileAsync(dtoWithImage.ImageFile, "products");
 
                     if (!uploadResult.Success)
-                        return ResponseDto.Failure(400, $"Failed to upload image: {uploadResult.ErrorMessage}");
+                    {
+                        return ResponseDto.Failure(500, $"Failed to upload image: {uploadResult.ErrorMessage}");
+                    }
 
-                    pictureUrl = uploadResult.FileUrl;
+                    imageUrl = uploadResult.FileUrl;
                 }
-                //-----------------------------------------------------
+
                 var product = _mapper.Map<Product>(addProductDto);
-                await _productRepository.AddAsync(product);
+                product.ImageUrl = imageUrl;
+                await _unitOfWork.Repository<Product>().AddAsync(product);
                 await _unitOfWork.CompleteAsync();
 
-                return ResponseDto.Success(201, "Product added successfully", new { ProductId = product.Id });
+                var productDto = _mapper.Map<ProductDto>(product);
+
+                return ResponseDto.Success(201, "Product created successfully", productDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding product");
-                return ResponseDto.Failure(500, "An error occurred while adding the product");
+                _logger.LogError(ex, "Error creating product");
+                return ResponseDto.Failure(500, "An error occurred while creating the product");
             }
         }
 
@@ -79,20 +80,21 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var existingProduct = await _productRepository.GetByIdAsync(productId);
+                var existingProduct = await _unitOfWork.Repository<Product>().GetByIdAsync(productId);
                 if (existingProduct == null)
                     return ResponseDto.Failure(404, $"Product with ID {productId} not found");
-                //-----------------------------------------------------
-                if (!string.IsNullOrEmpty(existingProduct.PictureUrl))
+
+                if (!string.IsNullOrEmpty(existingProduct.ImageUrl))
                 {
-                    var deleteSuccess = await _fileService.DeleteFileAsync(existingProduct.PictureUrl);
-                    if (!deleteSuccess)
+                    var deleted = await _fileService.DeleteFileAsync(existingProduct.ImageUrl);
+                    if (!deleted)
                     {
-                        _logger.LogWarning("Failed to delete image file for product ID: {ProductId}", productId);
+                        _logger.LogWarning("Failed to delete image for product {ProductId}: {ImageUrl}",
+                            productId, existingProduct.ImageUrl);
                     }
                 }
-                //-----------------------------------------------------
-                _productRepository.Delete(existingProduct);
+
+                _unitOfWork.Repository<Product>().Delete(existingProduct);
                 await _unitOfWork.CompleteAsync();
 
                 return ResponseDto.Success(200, "Product deleted successfully");
@@ -122,26 +124,15 @@ namespace ECommerce.Services.Implementations
 
                 spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
 
-                var countSpec = new ProductSpecification(
-                    searchTerm: paginationParams.SearchTerm,
-                    brandId: paginationParams.BrandId,
-                    typeId: paginationParams.TypeId,
-                    minPrice: paginationParams.MinPrice,
-                    maxPrice: paginationParams.MaxPrice,
-                    inStockOnly: paginationParams.InStockOnly);
+                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
 
-                var totalCount = await _productRepository.CountAsync(countSpec);
-
-                var products = await _productRepository.ListAsync(spec);
                 var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
 
-                return ResponseDto.PaginatedSuccess(
-                    productDtos,
-                    totalCount,
-                    paginationParams.PageNumber,
-                    paginationParams.PageSize,
-                    "Products retrieved successfully"
-                );
+                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+
+                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
             }
             catch (Exception ex)
             {
@@ -155,17 +146,13 @@ namespace ECommerce.Services.Implementations
             try
             {
                 var spec = new ProductSpecification(productId, includeBrand, includeType);
-                var product = (await _productRepository.ListAsync(spec)).FirstOrDefault();
-
+                var product = await _unitOfWork.Repository<Product>().GetAsyncWithSpec(spec);
                 if (product == null)
                     return ResponseDto.Failure(404, $"Product with ID {productId} not found");
 
                 var productDto = _mapper.Map<ProductDto>(product);
 
-                return ResponseDto.Success(200,
-                    "Product retrieved successfully",
-                    productDto
-                );
+                return ResponseDto.Success(200, "Product retrieved successfully", productDto);
             }
             catch (Exception ex)
             {
@@ -178,29 +165,33 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                if (brandId <= 0)
-                    return ResponseDto.Failure(400, "Invalid brand ID");
-
-                var brand = await _brandRepository.GetByIdAsync(brandId);
+                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(brandId);
                 if (brand == null)
-                    return ResponseDto.Failure(404, $"Brand with ID {brandId} not found");
+                    return ResponseDto.Failure(404, $"Product brand with ID {brandId} not found");
 
-                var productParams = new ProductPaginationParams
-                {
-                    PageNumber = paginationParams.PageNumber,
-                    PageSize = paginationParams.PageSize,
-                    SearchTerm = paginationParams.SearchTerm,
-                    SortBy = paginationParams.SortBy,
-                    SortDescending = paginationParams.SortDescending,
-                    BrandId = brandId
-                };
+                var spec = new ProductSpecification(
+                    searchTerm: paginationParams.SearchTerm,
+                    brandId: brandId,
+                    includeBrand: true,
+                    includeType: true);
 
-                return await GetAllProductsAsync(productParams);
+                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+
+                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+
+                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+
+                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+
+                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving products by brand ID: {BrandId}", brandId);
-                return ResponseDto.Failure(500, "An error occurred while retrieving products by brand");
+                return ResponseDto.Failure(500, "An error occurred while retrieving products");
             }
         }
 
@@ -208,29 +199,33 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                if (typeId <= 0)
-                    return ResponseDto.Failure(400, "Invalid type ID");
-
-                var type = await _typeRepository.GetByIdAsync(typeId);
+                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(typeId);
                 if (type == null)
-                    return ResponseDto.Failure(404, $"Type with ID {typeId} not found");
+                    return ResponseDto.Failure(404, $"Product type with ID {typeId} not found");
 
-                var productParams = new ProductPaginationParams
-                {
-                    PageNumber = paginationParams.PageNumber,
-                    PageSize = paginationParams.PageSize,
-                    SearchTerm = paginationParams.SearchTerm,
-                    SortBy = paginationParams.SortBy,
-                    SortDescending = paginationParams.SortDescending,
-                    TypeId = typeId
-                };
+                var spec = new ProductSpecification(
+                    searchTerm: paginationParams.SearchTerm,
+                    typeId: typeId,
+                    includeBrand: true,
+                    includeType: true);
 
-                return await GetAllProductsAsync(productParams);
+                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+
+                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+
+                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+
+                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+
+                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving products by type ID: {TypeId}", typeId);
-                return ResponseDto.Failure(500, "An error occurred while retrieving products by type");
+                return ResponseDto.Failure(500, "An error occurred while retrieving products");
             }
         }
 
@@ -238,46 +233,49 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var validationResult = ValidationHelper.ValidateProductDto(updateProductDto);
+                var validationResult = await ValidateProductDtoAsync(updateProductDto);
                 if (validationResult != null)
                     return validationResult;
 
-                var brand = await _brandRepository.GetByIdAsync(updateProductDto.ProductBrandId);
-                if (brand == null)
-                    return ResponseDto.Failure(400, $"Brand with ID {updateProductDto.ProductBrandId} does not exist");
-
-
-                var type = await _typeRepository.GetByIdAsync(updateProductDto.ProductTypeId);
-                if (type == null)
-                    return ResponseDto.Failure(400, $"Type with ID {updateProductDto.ProductTypeId} does not exist");
-
-
-                var existingProduct = await _productRepository.GetByIdAsync(productId);
+                var existingProduct = await _unitOfWork.Repository<Product>().GetByIdAsync(productId);
                 if (existingProduct == null)
                     return ResponseDto.Failure(404, $"Product with ID {productId} not found");
-                //-----------------------------------------------------
-                string pictureUrl = existingProduct.PictureUrl;
-                if (updateProductDto.PictureUrl != null)
+
+                var nameExists = await CheckIfProductNameExistsAsync(updateProductDto.Name, productId);
+                if (nameExists)
+                    return ResponseDto.Failure(400, $"Another product with name '{updateProductDto.Name}' already exists");
+
+
+                if (updateProductDto.ImageFile != null)
                 {
-                    var updateResult = await _fileService.UpdateFileAsync(
-                        updateProductDto.PictureUrl,
-                        existingProduct.PictureUrl,
+                    if (!_fileService.IsValidImage(updateProductDto.ImageFile))
+                    {
+                        return ResponseDto.Failure(400, "Invalid image file. Please upload a valid image (JPG, PNG, GIF, BMP, WEBP) under 5MB.");
+                    }
+
+                    var uploadResult = await _fileService.UpdateFileAsync(
+                        updateProductDto.ImageFile,
+                        existingProduct.ImageUrl,
                         "products");
 
-                    if (!updateResult.Success)
-                        return ResponseDto.Failure(400, $"Failed to update image: {updateResult.ErrorMessage}");
+                    if (!uploadResult.Success)
+                    {
+                        return ResponseDto.Failure(500, $"Failed to update image: {uploadResult.ErrorMessage}");
+                    }
 
-                    pictureUrl = updateResult.FileUrl;
+                    existingProduct.ImageUrl = uploadResult.FileUrl;
                 }
-                //-----------------------------------------------------
+
 
                 _mapper.Map(updateProductDto, existingProduct);
-                existingProduct.Id = productId; // Ensure ID remains unchanged
+                existingProduct.Id = productId;
 
-                _productRepository.Update(existingProduct);
+                _unitOfWork.Repository<Product>().Update(existingProduct);
                 await _unitOfWork.CompleteAsync();
 
-                return ResponseDto.Success(200, "Product updated successfully");
+                var productDto = _mapper.Map<ProductDto>(existingProduct);
+
+                return ResponseDto.Success(200, "Product updated successfully", productDto);
             }
             catch (Exception ex)
             {
@@ -291,18 +289,25 @@ namespace ECommerce.Services.Implementations
             try
             {
                 if (string.IsNullOrWhiteSpace(searchTerm))
-                    return ResponseDto.Failure(400, "Search term is required");
+                    return ResponseDto.Failure(400, "Search term cannot be empty");
 
-                var productParams = new ProductPaginationParams
-                {
-                    PageNumber = paginationParams.PageNumber,
-                    PageSize = paginationParams.PageSize,
-                    SearchTerm = searchTerm,
-                    SortBy = paginationParams.SortBy,
-                    SortDescending = paginationParams.SortDescending
-                };
+                var spec = new ProductSpecification(
+                    searchTerm: searchTerm,
+                    includeBrand: true,
+                    includeType: true);
 
-                return await GetAllProductsAsync(productParams);
+                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+
+                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+
+                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+
+                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+
+                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
             }
             catch (Exception ex)
             {
@@ -318,21 +323,87 @@ namespace ECommerce.Services.Implementations
                 if (quantity < 0)
                     return ResponseDto.Failure(400, "Quantity cannot be negative");
 
-                var existingProduct = await _productRepository.GetByIdAsync(productId);
+                var existingProduct = await _unitOfWork.Repository<Product>().GetByIdAsync(productId);
                 if (existingProduct == null)
                     return ResponseDto.Failure(404, $"Product with ID {productId} not found");
 
                 existingProduct.QuantityInStock = quantity;
-                _productRepository.Update(existingProduct);
+
+                _unitOfWork.Repository<Product>().Update(existingProduct);
                 await _unitOfWork.CompleteAsync();
 
-                return ResponseDto.Success(200, "Product stock updated successfully");
+                var productDto = _mapper.Map<ProductDto>(existingProduct);
+
+                return ResponseDto.Success(200, "Product stock updated successfully", productDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating stock for product ID: {ProductId}", productId);
-                return ResponseDto.Failure(500, "An error occurred while updating product stock");
+                _logger.LogError(ex, "Error updating stock for product with ID: {ProductId}", productId);
+                return ResponseDto.Failure(500, "An error occurred while updating the product stock");
             }
+        }
+
+        private async Task<bool> CheckIfProductNameExistsAsync(string productName, int? excludeProductId = null)
+        {
+            var allProducts = await _unitOfWork.Repository<Product>().ListAllAsync();
+
+            if (excludeProductId.HasValue)
+            {
+                return allProducts.Any(p =>
+                    p.Name.Equals(productName, StringComparison.OrdinalIgnoreCase) &&
+                    p.Id != excludeProductId.Value);
+            }
+
+            return allProducts.Any(p => p.Name.Equals(productName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async Task<ResponseDto> ValidateProductDtoAsync(AddOrUpdateProductDto dto)
+        {
+            if (dto == null)
+                return ResponseDto.Failure(400, "Please enter valid data");
+
+            var errors = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                errors.Add("Product name is required");
+            else if (dto.Name.Length > 200)
+                errors.Add("Product name cannot exceed 200 characters");
+
+            if (dto.Description != null && dto.Description.Length > 1000)
+                errors.Add("Product description cannot exceed 1000 characters");
+
+            if (dto.Price <= 0)
+                errors.Add("Product price must be greater than zero");
+
+            if (dto.QuantityInStock < 0)
+                errors.Add("Product quantity in stock cannot be negative");
+
+            if (dto.ProductBrandId <= 0)
+            {
+                errors.Add("Valid product brand is required");
+            }
+            else
+            {
+                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(dto.ProductBrandId);
+                if (brand == null)
+                    errors.Add($"Product brand with ID {dto.ProductBrandId} does not exist");
+            }
+
+            if (dto.ProductTypeId <= 0)
+            {
+                errors.Add("Valid product type is required");
+            }
+            else
+            {
+                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(dto.ProductTypeId);
+                if (type == null)
+                    errors.Add($"Product type with ID {dto.ProductTypeId} does not exist");
+            }
+
+            if (errors.Any())
+                return ResponseDto.ValidationFailure(400, "Validation failed", errors);
+
+            return null;
         }
     }
 }

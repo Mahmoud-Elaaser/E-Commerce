@@ -86,7 +86,7 @@ namespace ECommerce.Controllers
 
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
@@ -98,7 +98,7 @@ namespace ECommerce.Controllers
 
             if (result.Status == 201 && result.Model != null)
             {
-                var productId = (result.Model as dynamic)?.ProductId;
+                var productId = (result.Model as dynamic)?.Id;
                 if (productId != null)
                 {
                     return CreatedAtAction(

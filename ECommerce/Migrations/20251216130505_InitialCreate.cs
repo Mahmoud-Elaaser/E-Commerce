@@ -144,19 +144,19 @@ namespace ECommerce.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    OrderAddressId = table.Column<int>(type: "int", nullable: false),
+                    ShippingAddressId = table.Column<int>(type: "int", nullable: false),
+                    PaymentStatus = table.Column<int>(type: "int", nullable: false),
                     DeliveryMethodId = table.Column<int>(type: "int", nullable: true),
-                    OrderStatus = table.Column<int>(type: "int", nullable: false),
-                    OrderDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    SubTotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     PaymentIntentId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    SubTotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
+                    OrderDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Orders", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Orders_Adresses_OrderAddressId",
-                        column: x => x.OrderAddressId,
+                        name: "FK_Orders_Adresses_ShippingAddressId",
+                        column: x => x.ShippingAddressId,
                         principalTable: "Adresses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -176,7 +176,7 @@ namespace ECommerce.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PictureUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Price = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     QuantityInStock = table.Column<int>(type: "int", nullable: false),
                     ProductBrandId = table.Column<int>(type: "int", nullable: false),
@@ -363,9 +363,9 @@ namespace ECommerce.Migrations
                 column: "DeliveryMethodId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Orders_OrderAddressId",
+                name: "IX_Orders_ShippingAddressId",
                 table: "Orders",
-                column: "OrderAddressId");
+                column: "ShippingAddressId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Products_ProductBrandId",
