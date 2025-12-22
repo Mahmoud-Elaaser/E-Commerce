@@ -1,17 +1,23 @@
-﻿using ECommerce.Models;
+﻿using ECommerce.DTOs;
+using ECommerce.DTOs.Basket;
+using ECommerce.Models;
 
 namespace ECommerce.Services.Interfaces
 {
     public interface IBasketService
     {
-        Task<Basket?> GetBasketAsync(string basketId);
-        Task<Basket?> CreateOrGetBasketAsync(string? basketId = null);
-        Task<Basket?> AddItemToBasketAsync(string basketId, BasketItem item);
-        Task<Basket?> UpdateItemQuantityAsync(string basketId, int productId, int quantity);
-        Task<Basket?> RemoveItemFromBasketAsync(string basketId, int productId);
-        Task<Basket?> UpdateDeliveryMethodAsync(string basketId, int deliveryMethodId, decimal shippingPrice);
-        Task<Basket?> SetPaymentIntentAsync(string basketId, string paymentIntentId, string clientSecret);
-        Task<bool> ClearBasketAsync(string basketId);
-        Task<decimal> GetBasketTotalAsync(string basketId);
+        Task<ResponseDto> GetBasketAsync(string basketId);
+
+        Task<ResponseDto> CreateBasketAsync(BasketDTO basketDto);
+
+        Task<ResponseDto> AddItemToBasketAsync(string basketId, BasketItem item);
+
+        Task<ResponseDto> UpdateItemQuantityAsync(string basketId, int productId, int quantity);
+        Task<ResponseDto> RemoveItemFromBasketAsync(string basketId, int productId);
+
+
+        Task<ResponseDto> ClearBasketAsync(string basketId);
+
+        Task<ResponseDto> GetBasketTotalAsync(string basketId);
     }
 }
