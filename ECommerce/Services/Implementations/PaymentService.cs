@@ -5,46 +5,44 @@ using ECommerce.Exceptions;
 using ECommerce.Models;
 using ECommerce.Repositories.Interfaces;
 using ECommerce.Services.Interfaces;
+using ECommerce.Settings;
 using ECommerce.Specifications;
+using Microsoft.Extensions.Options;
 using Stripe;
 
 namespace ECommerce.Services.Implementations
 {
     public class PaymentService : IPaymentService
     {
-        private readonly IConfiguration _configuration;
         private readonly IBasketRepository _basketRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly ILogger<PaymentService> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly StripeOptions _options;
 
         public PaymentService(
-            IConfiguration configuration,
             IBasketRepository basketRepository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            ILogger<PaymentService> logger)
+            IConfiguration configuration,
+            IOptions<StripeOptions> options)
         {
-            _configuration = configuration;
+            _options = options.Value;
             _basketRepository = basketRepository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _logger = logger;
+            _configuration = configuration;
         }
 
-        public async Task<BasketDTO> CreateOrUpdatePaymentIntentAsync(string basketId)
+        public async Task<CustomerBasketDto> CreateOrUpdatePaymentIntentAsync(string basketId)
         {
-            var secretKey = _configuration.GetSection("StripeSettings")["SecretKey"];
-            if (string.IsNullOrEmpty(secretKey))
-                throw new StripeConfigurationException("SecretKey");
-
-            StripeConfiguration.ApiKey = secretKey;
+            StripeConfiguration.ApiKey = _configuration.GetSection("StripeSetings")["SecretKey"];
 
             var basket = await _basketRepository.GetBasketAsync(basketId);
             if (basket == null)
                 throw new EmptyBasketException(basketId);
 
-            /// Update product prices from database
+            /// Update product prices 
             foreach (var item in basket.Items)
             {
                 var product = await _unitOfWork.Repository<Models.Product>()
@@ -65,15 +63,17 @@ namespace ECommerce.Services.Implementations
             if (deliveryMethod == null)
                 throw new DeliveryMethodNotFoundException(basket.DeliveryMethodId.Value);
 
-            basket.ShippingPrice = deliveryMethod.Cost;
+            var ShippingCost = deliveryMethod.Cost;
+            var subTotal = basket.Items.Sum(i => i.Price * i.Quantity);
+            /// Calculate total amount ( (* 100) => convert to cents for Stripe)
+            var totalAmount = (long)((subTotal + ShippingCost) * 100);
 
-            /// Calculate total amount (convert to cents for Stripe)
-            var totalAmount = (long)((basket.Items.Sum(i => i.Price * i.Quantity) + basket.ShippingPrice) * 100);
 
             var stripeService = new PaymentIntentService();
 
             try
             {
+                /// Create payment intent 
                 if (string.IsNullOrEmpty(basket.PaymentIntentId))
                 {
                     var options = new PaymentIntentCreateOptions
@@ -85,31 +85,24 @@ namespace ECommerce.Services.Implementations
 
                     var paymentIntent = await stripeService.CreateAsync(options);
 
+                    /// Save payment intent details to basket
                     basket.PaymentIntentId = paymentIntent.Id;
                     basket.ClientSecret = paymentIntent.ClientSecret;
 
-                    _logger.LogInformation(
-                        "Created payment intent {PaymentIntentId} for basket {BasketId}",
-                        paymentIntent.Id, basketId);
                 }
                 else
                 {
+                    /// Update payment intent 
                     var updateOptions = new PaymentIntentUpdateOptions
                     {
                         Amount = totalAmount
                     };
 
                     await stripeService.UpdateAsync(basket.PaymentIntentId, updateOptions);
-
-                    _logger.LogInformation(
-                        "Updated payment intent {PaymentIntentId} for basket {BasketId}",
-                        basket.PaymentIntentId, basketId);
                 }
             }
             catch (StripeException ex)
             {
-                _logger.LogError(ex,
-                    "Stripe API error while processing payment intent for basket {BasketId}", basketId);
 
                 if (string.IsNullOrEmpty(basket.PaymentIntentId))
                     throw new PaymentIntentCreationException(basketId, ex.Message, ex);
@@ -119,76 +112,36 @@ namespace ECommerce.Services.Implementations
 
             await _basketRepository.CreateOrUpdateBasketAsync(basket);
 
-            return _mapper.Map<BasketDTO>(basket);
+            return _mapper.Map<CustomerBasketDto>(basket);
         }
+
+
+
 
         public async Task UpdateOrderPaymentStatusAsync(string json, string header)
         {
-            var endpointSecret = _configuration.GetSection("StripeSettings")["EndpointSecret"];
-            if (string.IsNullOrEmpty(endpointSecret))
-                throw new StripeConfigurationException("EndpointSecret");
+            var endpointSecret = _configuration.GetSection("StripeSetings")["EndpointSecret"];
 
-            Event stripeEvent;
+            var stripeEvent = EventUtility.ParseEvent(json, throwOnApiVersionMismatch: false);
 
-            try
-            {
-                stripeEvent = EventUtility.ConstructEvent(
-                    json,
-                    header,
-                    endpointSecret,
-                    throwOnApiVersionMismatch: false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to construct Stripe webhook event");
-                throw new InvalidPaymentWebhookException("Failed to verify webhook signature", ex);
-            }
 
+            stripeEvent = EventUtility.ConstructEvent(json, header, endpointSecret, throwOnApiVersionMismatch: false);
             var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-            if (paymentIntent == null)
-            {
-                _logger.LogWarning("Webhook event data is not a PaymentIntent. Type: {EventType}",
-                    stripeEvent.Type);
-                throw new InvalidPaymentWebhookException(
-                    $"Expected PaymentIntent but received {stripeEvent.Data.Object?.GetType().Name}");
-            }
 
-            try
+            switch (stripeEvent.Type)
             {
-                switch (stripeEvent.Type)
-                {
-                    case EventTypes.PaymentIntentSucceeded:
-                        _logger.LogInformation(
-                            "Processing payment success for PaymentIntent {PaymentIntentId}",
-                            paymentIntent.Id);
-                        await UpdatePaymentIntentSucceededAsync(paymentIntent.Id);
-                        break;
+                case EventTypes.PaymentIntentSucceeded:
+                    await UpdatePaymentIntentSucceededAsync(paymentIntent!.Id);
+                    break;
+                case EventTypes.PaymentIntentPaymentFailed:
+                    await UpdatePaymentIntentFailedAsync(paymentIntent!.Id);
+                    break;
 
-                    case EventTypes.PaymentIntentPaymentFailed:
-                        _logger.LogWarning(
-                            "Processing payment failure for PaymentIntent {PaymentIntentId}",
-                            paymentIntent.Id);
-                        await UpdatePaymentIntentFailedAsync(paymentIntent.Id);
-                        break;
-
-                    default:
-                        _logger.LogInformation(
-                            "Unhandled Stripe event type: {EventType}", stripeEvent.Type);
-                        break;
-                }
+                default:
+                    Console.WriteLine("Unhandled event type: {0}", stripeEvent.Type);
+                    break;
             }
-            catch (OrderNotFoundException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex,
-                    "Error updating order payment status for PaymentIntent {PaymentIntentId}",
-                    paymentIntent.Id);
-                throw new InvalidPaymentWebhookException(
-                    $"Failed to update order status for payment intent {paymentIntent.Id}", ex);
-            }
+            throw new NotImplementedException();
         }
 
         private async Task UpdatePaymentIntentFailedAsync(string paymentIntentId)
@@ -199,12 +152,11 @@ namespace ECommerce.Services.Implementations
             if (order == null)
                 throw new OrderNotFoundException(paymentIntentId);
 
-            order.PaymentStatus = OrderStatus.PaymentFailed;
+            order.OrderStatus = OrderStatus.PaymentFailed;
 
             _unitOfWork.Repository<Order>().Update(order);
             await _unitOfWork.CompleteAsync();
 
-            _logger.LogInformation("Updated order {OrderId} status to PaymentFailed", order.Id);
         }
 
         private async Task UpdatePaymentIntentSucceededAsync(string paymentIntentId)
@@ -216,12 +168,11 @@ namespace ECommerce.Services.Implementations
             if (order == null)
                 throw new OrderNotFoundException(paymentIntentId);
 
-            order.PaymentStatus = OrderStatus.PaymentReceived;
+            order.OrderStatus = OrderStatus.PaymentReceived;
 
             _unitOfWork.Repository<Order>().Update(order);
             await _unitOfWork.CompleteAsync();
 
-            _logger.LogInformation("Updated order {OrderId} status to PaymentReceived", order.Id);
         }
     }
 }

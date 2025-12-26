@@ -1,8 +1,8 @@
-﻿using ECommerce.DTOs;
+﻿using AutoMapper;
+using ECommerce.DTOs;
 using ECommerce.DTOs.Basket;
 using ECommerce.Models;
-using ECommerce.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+using ECommerce.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ECommerce.Controllers
@@ -11,139 +11,60 @@ namespace ECommerce.Controllers
     [Route("api/[controller]")]
     public class BasketController : ControllerBase
     {
-        private readonly IBasketService _basketService;
+        private readonly IBasketRepository _basketRepository;
+        private readonly IMapper _mapper;
 
-        public BasketController(IBasketService basketService)
+        public BasketController(IBasketRepository basketRepository, IMapper mapper)
         {
-            _basketService = basketService;
+            _basketRepository = basketRepository;
+            _mapper = mapper;
         }
 
         [HttpGet("{basketId}")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetBasket(string basketId)
+        public async Task<ActionResult<Basket>> GetBasket(string basketId)
         {
-            var response = await _basketService.GetBasketAsync(basketId);
-            return StatusCode(response.Status, response);
+            var response = await _basketRepository.GetBasketAsync(basketId);
+            return response is null ? new Basket(basketId) : response;
         }
 
+        [HttpPost]
+        public async Task<ActionResult<Basket>> UpdateBasket(CustomerBasketDto basket)
+        {
+            var MappedBasket = _mapper.Map<CustomerBasketDto, Basket>(basket);
+            var CreatedOrUpdatedBasket = await _basketRepository.UpdateBasketAsync(MappedBasket);
+            if (CreatedOrUpdatedBasket is null) return BadRequest("There is a problem Wih Your Basket :(");
+            return Ok(CreatedOrUpdatedBasket);
+        }
+
+        [HttpDelete]
+        public async Task<ActionResult<bool>> DeleteBasket(string id)
+        {
+            return await _basketRepository.DeleteBasketAsync(id);
+        }
         [HttpPost("create")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateOrGetBasket([FromForm] BasketDTO basketDTO)
+        public async Task<ActionResult<BasketResponseDto>> CreateOrUpdateBasket([FromBody] CustomerBasketDto basketDto)
         {
-            var response = await _basketService.CreateBasketAsync(basketDTO);
-            return StatusCode(response.Status, response);
-        }
+            var basket = _mapper.Map<Basket>(basketDto);
 
-        [HttpPost("{basketId}/items")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AddItemToBasket(string basketId, [FromBody] BasketItem item)
-        {
-            if (item == null)
+            // Ensure a new ID is generated for create operations
+            basket.Id = Guid.NewGuid().ToString();
+
+            var savedBasket = await _basketRepository.CreateOrUpdateBasketAsync(basket);
+
+            if (savedBasket == null)
             {
-                return BadRequest(ResponseDto.Failure(400, "Item cannot be null"));
+                return StatusCode(500, "Failed to save basket");
             }
 
-            var response = await _basketService.AddItemToBasketAsync(basketId, item);
-            return StatusCode(response.Status, response);
-        }
 
-        [HttpPut("{basketId}/items/{productId}")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateItemQuantity(
-            string basketId,
-            int productId,
-            [FromBody] UpdateQuantityRequestDto request)
-        {
-            if (request == null)
-            {
-                return BadRequest(ResponseDto.Failure(400, "Request body cannot be null"));
-            }
-
-            var response = await _basketService.UpdateItemQuantityAsync(basketId, productId, request.Quantity);
-            return StatusCode(response.Status, response);
-        }
-
-        [HttpDelete("{basketId}/items/{productId}")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> RemoveItemFromBasket(string basketId, int productId)
-        {
-            var response = await _basketService.RemoveItemFromBasketAsync(basketId, productId);
-            return StatusCode(response.Status, response);
+            var response = _mapper.Map<BasketResponseDto>(savedBasket);
+            return Ok(response);
         }
 
 
-        [HttpDelete("{basketId}")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> ClearBasket(string basketId)
-        {
-            var response = await _basketService.ClearBasketAsync(basketId);
-            return StatusCode(response.Status, response);
-        }
-
-
-        [HttpGet("{basketId}/total")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetBasketTotal(string basketId)
-        {
-            var response = await _basketService.GetBasketTotalAsync(basketId);
-            return StatusCode(response.Status, response);
-        }
-
-        [HttpGet("my-basket")]
-        [Authorize]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetMyBasket()
-        {
-            var userId = User.FindFirst("sub")?.Value ?? User.FindFirst("userId")?.Value;
-
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(ResponseDto.Failure(401, "User not authenticated"));
-            }
-
-            var response = await _basketService.GetBasketAsync(userId);
-            return StatusCode(response.Status, response);
-        }
-
-
-        [HttpPost("my-basket/items")]
-        [Authorize]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> AddItemToMyBasket([FromBody] BasketItem item)
-        {
-            if (item == null)
-            {
-                return BadRequest(ResponseDto.Failure(400, "Item cannot be null"));
-            }
-
-            var userId = User.FindFirst("sub")?.Value ?? User.FindFirst("userId")?.Value;
-
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(ResponseDto.Failure(401, "User not authenticated"));
-            }
-
-            var response = await _basketService.AddItemToBasketAsync(userId, item);
-            return StatusCode(response.Status, response);
-        }
     }
 
 }

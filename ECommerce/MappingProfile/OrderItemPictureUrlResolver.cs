@@ -14,12 +14,12 @@ namespace ECommerce.MappingProfile
         }
         public string Resolve(OrderItem source, OrderItemDto destination, string destMember, ResolutionContext context)
         {
-            if (string.IsNullOrWhiteSpace(source.Product.PictureUrl))
+            if (string.IsNullOrWhiteSpace(source.ProductItem.PictureUrl))
             {
                 return string.Empty;
             }
 
-            return $"{_configuration["BaseUrl"]}{source.Product.PictureUrl}";
+            return $"{_configuration["BaseUrl"]}{source.ProductItem.PictureUrl}";
         }
     }
 }

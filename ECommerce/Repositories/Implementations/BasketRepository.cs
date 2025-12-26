@@ -9,6 +9,7 @@ namespace ECommerce.Repositories.Implementations
     public class BasketRepository : IBasketRepository
     {
         private readonly IDatabase _database;
+        private const string BasketKeyPrefix = "basket:";
 
         public BasketRepository(IConnectionMultiplexer redis)
         {
@@ -17,57 +18,80 @@ namespace ECommerce.Repositories.Implementations
 
         public async Task<Basket?> GetBasketAsync(string basketId)
         {
-            var data = await _database.StringGetAsync(basketId);
+            var redisKey = $"{BasketKeyPrefix}{basketId}";
+            var data = await _database.StringGetAsync(redisKey);
 
-            return data.IsNullOrEmpty ? null : JsonSerializer.Deserialize<Basket>(data!);
+            if (data.IsNullOrEmpty)
+                return null;
+
+            var basket = JsonSerializer.Deserialize<Basket>(data!);
+            if (basket != null)
+            {
+                basket.Id = basketId;
+            }
+
+            return basket;
         }
 
         public async Task<Basket?> UpdateBasketAsync(Basket basket)
         {
+            // Generate ID if not provided
+            if (string.IsNullOrEmpty(basket.Id))
+            {
+                basket.Id = Guid.NewGuid().ToString();
+            }
+
+            var redisKey = $"{BasketKeyPrefix}{basket.Id}";
             var json = JsonSerializer.Serialize(basket);
 
             var created = await _database.StringSetAsync(
-                basket.Id,
+                redisKey,
                 json,
                 TimeSpan.FromDays(30)
             );
 
-            return created ? await GetBasketAsync(basket.Id) : null;
+            return created ? basket : null;
         }
 
         public async Task<bool> DeleteBasketAsync(string basketId)
         {
-            return await _database.KeyDeleteAsync(basketId);
+            var redisKey = $"{BasketKeyPrefix}{basketId}";
+            return await _database.KeyDeleteAsync(redisKey);
         }
 
         public async Task<bool> ClearBasketAsync(string basketId)
         {
-            if (string.IsNullOrWhiteSpace(basketId))
-                return false;
-
+            var redisKey = $"{BasketKeyPrefix}{basketId}";
             var basket = await GetBasketAsync(basketId);
 
             if (basket == null)
                 return false;
 
-            // Clear items but keep other properties
             basket.Items.Clear();
 
-            var result = await UpdateBasketAsync(basket);
+            var json = JsonSerializer.Serialize(basket);
+            var result = await _database.StringSetAsync(redisKey, json, TimeSpan.FromDays(30));
 
-            return result != null;
-
+            return result;
         }
-
-
-
 
         public async Task<Basket?> CreateOrUpdateBasketAsync(Basket basket, TimeSpan? timeToLive = null)
         {
-            var jsonBasket = JsonSerializer.Serialize(basket);
-            var isCreatedorUpdate = await _database.StringSetAsync(basket.Id, jsonBasket, timeToLive ?? TimeSpan.FromDays(30));
+            if (string.IsNullOrEmpty(basket.Id))
+            {
+                basket.Id = Guid.NewGuid().ToString();
+            }
 
-            return isCreatedorUpdate ? await GetBasketAsync(basket.Id) : null;
+            var redisKey = $"{BasketKeyPrefix}{basket.Id}";
+            var jsonBasket = JsonSerializer.Serialize(basket);
+
+            var isCreatedorUpdate = await _database.StringSetAsync(
+                redisKey,
+                jsonBasket,
+                timeToLive ?? TimeSpan.FromDays(30)
+            );
+
+            return isCreatedorUpdate ? basket : null;
         }
     }
 }

@@ -38,13 +38,13 @@ namespace ECommerce
 
             /// Repositories & services registration
             services.AddScoped<IBasketRepository, BasketRepository>();
-            services.AddScoped<IBasketService, BasketService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IProductService, ProductService>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IFileService, FileService>();
             services.AddScoped<IProductTypeService, ProductTypeService>();
             services.AddScoped<IProductBrandService, ProductBrandService>();
+            services.AddScoped<IPaymentService, PaymentService>();
             /// AutoMapper Configuration
             services.AddAutoMapper(config =>
             {

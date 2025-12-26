@@ -52,7 +52,7 @@ namespace ECommerce.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Adresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("ECommerce.Models.ApplicationUser", b =>
@@ -155,6 +155,48 @@ namespace ECommerce.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DeliveryMethods");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Cost = 15m,
+                            DeliveryTime = "2-3 business days",
+                            Description = "Fast delivery with priority handling",
+                            ShortName = "Express"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Cost = 25m,
+                            DeliveryTime = "1 business day",
+                            Description = "Guaranteed next business day delivery",
+                            ShortName = "Next Day"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Cost = 5m,
+                            DeliveryTime = "5-7 business days",
+                            Description = "Economy shipping with tracking",
+                            ShortName = "Standard"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Cost = 0m,
+                            DeliveryTime = "5-10 business days",
+                            Description = "Free shipping on all orders",
+                            ShortName = "Free Shipping"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Cost = 10m,
+                            DeliveryTime = "Ready in 2 hours",
+                            Description = "Pick up from nearest store location",
+                            ShortName = "Store Pickup"
+                        });
                 });
 
             modelBuilder.Entity("ECommerce.Models.Order", b =>
@@ -169,12 +211,12 @@ namespace ECommerce.Migrations
                     b.Property<DateTimeOffset>("OrderDate")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("OrderStatus")
+                        .HasColumnType("int");
+
                     b.Property<string>("PaymentIntentId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PaymentStatus")
-                        .HasColumnType("int");
 
                     b.Property<int>("ShippingAddressId")
                         .HasColumnType("int");
@@ -245,9 +287,6 @@ namespace ECommerce.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("ProductTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuantityInStock")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -462,7 +501,7 @@ namespace ECommerce.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.OwnsOne("ECommerce.Models.ProductOrderItem", "Product", b1 =>
+                    b.OwnsOne("ECommerce.Models.ProductOrderItem", "ProductItem", b1 =>
                         {
                             b1.Property<int>("OrderItemId")
                                 .HasColumnType("int");
@@ -486,7 +525,7 @@ namespace ECommerce.Migrations
                                 .HasForeignKey("OrderItemId");
                         });
 
-                    b.Navigation("Product")
+                    b.Navigation("ProductItem")
                         .IsRequired();
                 });
 

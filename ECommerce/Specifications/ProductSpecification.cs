@@ -1,5 +1,4 @@
 ﻿using ECommerce.Models;
-using ECommerce.Specifications;
 using System.Linq.Expressions;
 
 namespace ECommerce.Specifications
@@ -46,8 +45,7 @@ namespace ECommerce.Specifications
                 (!brandId.HasValue || p.ProductBrandId == brandId.Value) &&
                 (!typeId.HasValue || p.ProductTypeId == typeId.Value) &&
                 (!minPrice.HasValue || p.Price >= minPrice.Value) &&
-                (!maxPrice.HasValue || p.Price <= maxPrice.Value) &&
-                (!inStockOnly || p.QuantityInStock > 0);
+                (!maxPrice.HasValue || p.Price <= maxPrice.Value);
         }
 
         public void ApplyPagination(int pageNumber, int pageSize)
@@ -72,12 +70,7 @@ namespace ECommerce.Specifications
                         AddOrderBy(p => p.Name);
                     break;
                 case "stock":
-                case "quantity":
-                    if (descending)
-                        AddOrderByDescending(p => p.QuantityInStock);
-                    else
-                        AddOrderBy(p => p.QuantityInStock);
-                    break;
+
                 case "brand":
                     if (descending)
                         AddOrderByDescending(p => p.ProductBrand.Name);

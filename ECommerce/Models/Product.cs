@@ -9,7 +9,7 @@
         public string? ImageUrl { get; set; }
 
         public decimal Price { get; set; }
-        public int QuantityInStock { get; set; }
+        //public int QuantityInStock { get; set; }
 
         public int ProductBrandId { get; set; }
         public ProductBrand ProductBrand { get; set; } = default!;

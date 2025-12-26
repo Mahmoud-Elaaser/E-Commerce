@@ -2,7 +2,6 @@
 using ECommerce.DTOs.Pagination;
 using ECommerce.DTOs.Product;
 using ECommerce.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ECommerce.Controllers
@@ -112,7 +111,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
@@ -127,25 +126,10 @@ namespace ECommerce.Controllers
             return StatusCode(result.Status, result);
         }
 
-        [HttpPut("{id}/stock")]
-        [Authorize(Roles = "Admin")]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> UpdateProductStock(
-            int id,
-            [FromForm] UpdateStockDto stockUpdate)
-        {
-            var result = await _productService.UpdateProductStockAsync(id, stockUpdate.Quantity);
-            return StatusCode(result.Status, result);
-        }
 
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status403Forbidden)]

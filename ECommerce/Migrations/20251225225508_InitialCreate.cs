@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
+
 namespace ECommerce.Migrations
 {
     /// <inheritdoc />
@@ -12,7 +14,7 @@ namespace ECommerce.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Adresses",
+                name: "Addresses",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -25,7 +27,7 @@ namespace ECommerce.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Adresses", x => x.Id);
+                    table.PrimaryKey("PK_Addresses", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -110,9 +112,9 @@ namespace ECommerce.Migrations
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AspNetUsers_Adresses_AddressId",
+                        name: "FK_AspNetUsers_Addresses_AddressId",
                         column: x => x.AddressId,
-                        principalTable: "Adresses",
+                        principalTable: "Addresses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -145,7 +147,7 @@ namespace ECommerce.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ShippingAddressId = table.Column<int>(type: "int", nullable: false),
-                    PaymentStatus = table.Column<int>(type: "int", nullable: false),
+                    OrderStatus = table.Column<int>(type: "int", nullable: false),
                     DeliveryMethodId = table.Column<int>(type: "int", nullable: true),
                     SubTotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     PaymentIntentId = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -155,9 +157,9 @@ namespace ECommerce.Migrations
                 {
                     table.PrimaryKey("PK_Orders", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Orders_Adresses_ShippingAddressId",
+                        name: "FK_Orders_Addresses_ShippingAddressId",
                         column: x => x.ShippingAddressId,
-                        principalTable: "Adresses",
+                        principalTable: "Addresses",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
@@ -178,7 +180,6 @@ namespace ECommerce.Migrations
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Price = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    QuantityInStock = table.Column<int>(type: "int", nullable: false),
                     ProductBrandId = table.Column<int>(type: "int", nullable: false),
                     ProductTypeId = table.Column<int>(type: "int", nullable: false)
                 },
@@ -290,9 +291,9 @@ namespace ECommerce.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    Product_ProductId = table.Column<int>(type: "int", nullable: false),
-                    Product_ProductName = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Product_PictureUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ProductItem_ProductId = table.Column<int>(type: "int", nullable: false),
+                    ProductItem_ProductName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ProductItem_PictureUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Price = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Quantity = table.Column<int>(type: "int", nullable: false),
                     OrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
@@ -306,6 +307,18 @@ namespace ECommerce.Migrations
                         principalTable: "Orders",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.InsertData(
+                table: "DeliveryMethods",
+                columns: new[] { "Id", "Cost", "DeliveryTime", "Description", "ShortName" },
+                values: new object[,]
+                {
+                    { 1, 15m, "2-3 business days", "Fast delivery with priority handling", "Express" },
+                    { 2, 25m, "1 business day", "Guaranteed next business day delivery", "Next Day" },
+                    { 3, 5m, "5-7 business days", "Economy shipping with tracking", "Standard" },
+                    { 4, 0m, "5-10 business days", "Free shipping on all orders", "Free Shipping" },
+                    { 5, 10m, "Ready in 2 hours", "Pick up from nearest store location", "Store Pickup" }
                 });
 
             migrationBuilder.CreateIndex(
@@ -418,7 +431,7 @@ namespace ECommerce.Migrations
                 name: "ProductTypes");
 
             migrationBuilder.DropTable(
-                name: "Adresses");
+                name: "Addresses");
 
             migrationBuilder.DropTable(
                 name: "DeliveryMethods");

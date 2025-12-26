@@ -4,11 +4,13 @@
     {
         public int Id { get; set; }
 
-        public int ProductId { get; set; }
+        //public int ProductId { get; set; }
 
         public string ProductName { get; set; } = default!;
+        public string ProductType { get; set; } = default!;
+        public string ProductBrand { get; set; } = default!;
 
-        public string? PictureUrl { get; set; }
+        public string PictureUrl { get; set; }
 
         public decimal Price { get; set; }
 

@@ -316,32 +316,7 @@ namespace ECommerce.Services.Implementations
             }
         }
 
-        public async Task<ResponseDto> UpdateProductStockAsync(int productId, int quantity)
-        {
-            try
-            {
-                if (quantity < 0)
-                    return ResponseDto.Failure(400, "Quantity cannot be negative");
 
-                var existingProduct = await _unitOfWork.Repository<Product>().GetByIdAsync(productId);
-                if (existingProduct == null)
-                    return ResponseDto.Failure(404, $"Product with ID {productId} not found");
-
-                existingProduct.QuantityInStock = quantity;
-
-                _unitOfWork.Repository<Product>().Update(existingProduct);
-                await _unitOfWork.CompleteAsync();
-
-                var productDto = _mapper.Map<ProductDto>(existingProduct);
-
-                return ResponseDto.Success(200, "Product stock updated successfully", productDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating stock for product with ID: {ProductId}", productId);
-                return ResponseDto.Failure(500, "An error occurred while updating the product stock");
-            }
-        }
 
         private async Task<bool> CheckIfProductNameExistsAsync(string productName, int? excludeProductId = null)
         {
@@ -374,9 +349,6 @@ namespace ECommerce.Services.Implementations
 
             if (dto.Price <= 0)
                 errors.Add("Product price must be greater than zero");
-
-            if (dto.QuantityInStock < 0)
-                errors.Add("Product quantity in stock cannot be negative");
 
             if (dto.ProductBrandId <= 0)
             {

@@ -25,7 +25,7 @@ namespace ECommerce.Models
         public string UserEmail { get; set; } = string.Empty;
         public Address ShippingAddress { get; set; }
 
-        public OrderStatus PaymentStatus { get; set; } = OrderStatus.Pending;
+        public OrderStatus OrderStatus { get; set; } = OrderStatus.Pending;
         public DeliveryMethod DeliveryMethod { get; set; }
         public int? DeliveryMethodId { get; set; }
 

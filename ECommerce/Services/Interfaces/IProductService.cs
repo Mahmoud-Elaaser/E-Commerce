@@ -14,7 +14,7 @@ namespace ECommerce.Services.Interfaces
         Task<ResponseDto> GetProductsByTypeAsync(int typeId, PaginationParams paginationParams);
         Task<ResponseDto> UpdateProductAsync(int productId, AddOrUpdateProductDto updateProductDto);
         Task<ResponseDto> SearchProductsAsync(string searchTerm, PaginationParams paginationParams);
-        Task<ResponseDto> UpdateProductStockAsync(int productId, int quantity);
+        //Task<ResponseDto> UpdateProductStockAsync(int productId, int quantity);
 
     }
 }

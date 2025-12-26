@@ -8,8 +8,9 @@ namespace ECommerce.MappingProfile
     {
         public BasketProfile()
         {
-            CreateMap<Basket, BasketDTO>().ReverseMap();
+            CreateMap<Basket, CustomerBasketDto>().ReverseMap();
             CreateMap<BasketItem, BasketItemDTO>().ReverseMap();
+            CreateMap<Basket, BasketResponseDto>().ReverseMap();
         }
     }
 }
