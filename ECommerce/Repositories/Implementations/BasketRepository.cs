@@ -93,5 +93,28 @@ namespace ECommerce.Repositories.Implementations
 
             return isCreatedorUpdate ? basket : null;
         }
+
+        public async Task<bool> ClearAllBasketsAsync()
+        {
+            try
+            {
+                var server = _database.Multiplexer.GetServer(_database.Multiplexer.GetEndPoints().First());
+                var keys = server.Keys(pattern: $"{BasketKeyPrefix}*").ToArray();
+
+                if (keys.Length == 0)
+                    return true;
+
+                var redisKeys = keys.Select(key => (RedisKey)key).ToArray();
+                var deletedCount = await _database.KeyDeleteAsync(redisKeys);
+
+                return deletedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (you should inject ILogger in production)
+                Console.WriteLine($"Error clearing all baskets: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

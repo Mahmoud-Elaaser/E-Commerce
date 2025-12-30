@@ -44,25 +44,38 @@ namespace ECommerce.Controllers
         {
             return await _basketRepository.DeleteBasketAsync(id);
         }
-        [HttpPost("create")]
-        public async Task<ActionResult<BasketResponseDto>> CreateOrUpdateBasket([FromBody] CustomerBasketDto basketDto)
+
+        [HttpDelete("clear-all")]
+        public async Task<IActionResult> ClearAllBaskets()
         {
-            var basket = _mapper.Map<Basket>(basketDto);
+            var result = await _basketRepository.ClearAllBasketsAsync();
 
-            // Ensure a new ID is generated for create operations
-            basket.Id = Guid.NewGuid().ToString();
+            if (result)
+                return Ok(new { message = "All baskets cleared successfully" });
 
-            var savedBasket = await _basketRepository.CreateOrUpdateBasketAsync(basket);
-
-            if (savedBasket == null)
-            {
-                return StatusCode(500, "Failed to save basket");
-            }
-
-
-            var response = _mapper.Map<BasketResponseDto>(savedBasket);
-            return Ok(response);
+            return StatusCode(500, new { message = "Failed to clear baskets" });
         }
+
+
+        //[HttpPost("create")]
+        //public async Task<ActionResult<BasketResponseDto>> CreateOrUpdateBasket([FromBody] CustomerBasketDto basketDto)
+        //{
+        //    var basket = _mapper.Map<Basket>(basketDto);
+
+        //    // Ensure a new ID is generated for create operations
+        //    basket.Id = Guid.NewGuid().ToString();
+
+        //    var savedBasket = await _basketRepository.CreateOrUpdateBasketAsync(basket);
+
+        //    if (savedBasket == null)
+        //    {
+        //        return StatusCode(500, "Failed to save basket");
+        //    }
+
+
+        //    var response = _mapper.Map<BasketResponseDto>(savedBasket);
+        //    return Ok(response);
+        //}
 
 
     }

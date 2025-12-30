@@ -17,26 +17,23 @@ namespace ECommerce.Services.Implementations
         private readonly IBasketRepository _basketRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
-        private readonly IConfiguration _configuration;
         private readonly StripeOptions _options;
 
         public PaymentService(
             IBasketRepository basketRepository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
-            IConfiguration configuration,
             IOptions<StripeOptions> options)
         {
-            _options = options.Value;
             _basketRepository = basketRepository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
-            _configuration = configuration;
+            _options = options.Value;
         }
 
         public async Task<CustomerBasketDto> CreateOrUpdatePaymentIntentAsync(string basketId)
         {
-            StripeConfiguration.ApiKey = _configuration.GetSection("StripeSetings")["SecretKey"];
+            StripeConfiguration.ApiKey = _options.SecretKey;
 
             var basket = await _basketRepository.GetBasketAsync(basketId);
             if (basket == null)
@@ -120,28 +117,40 @@ namespace ECommerce.Services.Implementations
 
         public async Task UpdateOrderPaymentStatusAsync(string json, string header)
         {
-            var endpointSecret = _configuration.GetSection("StripeSetings")["EndpointSecret"];
+            var endpointSecret = _options.EndPointSecret;
 
-            var stripeEvent = EventUtility.ParseEvent(json, throwOnApiVersionMismatch: false);
-
-
-            stripeEvent = EventUtility.ConstructEvent(json, header, endpointSecret, throwOnApiVersionMismatch: false);
-            var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-
-            switch (stripeEvent.Type)
+            try
             {
-                case EventTypes.PaymentIntentSucceeded:
-                    await UpdatePaymentIntentSucceededAsync(paymentIntent!.Id);
-                    break;
-                case EventTypes.PaymentIntentPaymentFailed:
-                    await UpdatePaymentIntentFailedAsync(paymentIntent!.Id);
-                    break;
+                var stripeEvent = EventUtility.ConstructEvent(
+                    json,
+                    header,
+                    endpointSecret,
+                    throwOnApiVersionMismatch: false
+                );
 
-                default:
-                    Console.WriteLine("Unhandled event type: {0}", stripeEvent.Type);
-                    break;
+                var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
+
+                switch (stripeEvent.Type)
+                {
+                    case EventTypes.PaymentIntentSucceeded:
+                        await UpdatePaymentIntentSucceededAsync(paymentIntent!.Id);
+                        break;
+
+                    case EventTypes.PaymentIntentPaymentFailed:
+                        await UpdatePaymentIntentFailedAsync(paymentIntent!.Id);
+                        break;
+
+                    default:
+                        Console.WriteLine($"Unhandled event type: {stripeEvent.Type}");
+                        break;
+                }
             }
-            throw new NotImplementedException();
+            catch (StripeException ex)
+            {
+                Console.WriteLine($"Stripe webhook error: {ex.Message}");
+                throw new Exception($"Webhook signature verification failed: {ex.Message}", ex);
+            }
+
         }
 
         private async Task UpdatePaymentIntentFailedAsync(string paymentIntentId)

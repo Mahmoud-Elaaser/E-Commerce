@@ -10,5 +10,7 @@ namespace ECommerce.Repositories.Interfaces
         Task<bool> ClearBasketAsync(string basketId);
 
         public Task<Basket?> CreateOrUpdateBasketAsync(Basket basket, TimeSpan? timeToLive = null);
+
+        Task<bool> ClearAllBasketsAsync();
     }
 }

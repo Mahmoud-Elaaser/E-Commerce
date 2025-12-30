@@ -6,16 +6,12 @@ using ECommerce.Repositories.Interfaces;
 using ECommerce.Services.Implementations;
 using ECommerce.Services.Interfaces;
 using ECommerce.Settings;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
-using System.Text;
-using FileService = ECommerce.Helpers.FileService;
 using ProductService = ECommerce.Services.Implementations.ProductService;
 
-namespace ECommerce
+namespace ECommerce.Dependencies
 {
     public static class ModuleServicesDependency
     {
@@ -45,6 +41,8 @@ namespace ECommerce
             services.AddScoped<IProductTypeService, ProductTypeService>();
             services.AddScoped<IProductBrandService, ProductBrandService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<IOrderService, OrderService>();
+
             /// AutoMapper Configuration
             services.AddAutoMapper(config =>
             {
@@ -55,34 +53,11 @@ namespace ECommerce
 
             services.Configure<JwtOptions>(configuration.GetSection("JwtOptions"));
             services.Configure<AdminOptions>(configuration.GetSection("AdminOptions"));
-
-            services.AddJwtOptions(configuration);
-        }
-
-        public static void AddJwtOptions(this IServiceCollection services, IConfiguration configuration)
-        {
-            var jwtOptions = configuration.GetSection("JwtOptions").Get<JwtOptions>();
-            services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtOptions!.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = jwtOptions.Audience,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
-
-                };
-            });
-            services.AddAuthorization();
+            services.Configure<StripeOptions>(configuration.GetSection("StripeOptions"));
 
         }
+
+
 
         public static async Task<WebApplication> SeedDbAsync(this WebApplication app)
         {

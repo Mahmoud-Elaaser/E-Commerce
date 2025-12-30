@@ -22,11 +22,25 @@ namespace ECommerce.Controllers
         [HttpPost("webHook")]
         public async Task<IActionResult> WebHook()
         {
-            var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
-            var signatureHeader = Request.Headers["Stripe-Signature"];
+            try
+            {
+                var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+                var signatureHeader = Request.Headers["Stripe-Signature"];
 
-            await _paymentService.UpdateOrderPaymentStatusAsync(json, signatureHeader);
-            return new EmptyResult();
+                if (string.IsNullOrEmpty(signatureHeader))
+                {
+                    return BadRequest("Missing signature");
+                }
+
+
+                await _paymentService.UpdateOrderPaymentStatusAsync(json, signatureHeader);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
     }

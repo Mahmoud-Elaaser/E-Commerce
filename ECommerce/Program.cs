@@ -1,3 +1,5 @@
+using ECommerce.Dependencies;
+
 namespace ECommerce
 {
     public class Program
@@ -11,6 +13,8 @@ namespace ECommerce
 
 
             builder.Services.AddServiceDependencies(builder.Configuration);
+            builder.Services.AddJwtAuthentication(builder.Configuration);
+            builder.Services.AddSwaggerWithJwtSupport();
 
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -19,9 +23,18 @@ namespace ECommerce
             builder.Services.AddHttpContextAccessor();
             builder.WebHost.UseWebRoot("wwwroot");
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
             var app = builder.Build();
             await app.SeedDbAsync();
-
 
             app.UseSwagger();
             app.UseSwaggerUI();
@@ -30,8 +43,10 @@ namespace ECommerce
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
-            app.UseAuthorization();
+            app.UseCors("AllowAll");
 
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             app.MapControllers();
 
