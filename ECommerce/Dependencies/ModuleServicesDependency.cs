@@ -42,6 +42,7 @@ namespace ECommerce.Dependencies
             services.AddScoped<IProductBrandService, ProductBrandService>();
             services.AddScoped<IPaymentService, PaymentService>();
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IEmailService, EmailService>();
 
             /// AutoMapper Configuration
             services.AddAutoMapper(config =>
@@ -54,6 +55,7 @@ namespace ECommerce.Dependencies
             services.Configure<JwtOptions>(configuration.GetSection("JwtOptions"));
             services.Configure<AdminOptions>(configuration.GetSection("AdminOptions"));
             services.Configure<StripeOptions>(configuration.GetSection("StripeOptions"));
+            services.Configure<EmailOptions>(configuration.GetSection("EmailOptions"));
 
         }
 
