@@ -15,14 +15,18 @@ namespace ECommerce.Services.Implementations
     public class AuthService : IAuthService
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailService _emailService;
         private readonly JwtOptions _options;
 
         public AuthService(UserManager<ApplicationUser> userManager,
+            IEmailService emailService,
             IOptions<JwtOptions> options)
         {
             _userManager = userManager;
+            _emailService = emailService;
             _options = options.Value;
         }
+
         public async Task<ResponseDto> RegisterAsync(RegisterDto registerDto)
         {
             var appUser = new ApplicationUser
@@ -36,64 +40,109 @@ namespace ECommerce.Services.Implementations
             var result = await _userManager.CreateAsync(appUser, registerDto.Password);
             if (!result.Succeeded)
             {
-                var errors = result.Errors.Select(e => e.Description);
-                return new ResponseDto
-                {
-                    IsSucceeded = false,
-                    Message = "User registration failed."
-
-                };
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "User registration failed.", errors);
             }
 
             await _userManager.AddToRoleAsync(appUser, "User");
             var token = await GenerateJwtTokenAsync(appUser);
-            return new ResponseDto
-            {
-                IsSucceeded = true,
-                Status = 201,
-                Message = "User registered successfully.",
-                Model = new { Token = token, UserId = appUser.Id, Email = appUser.Email }
 
-            };
-
+            return ResponseDto.Success(
+                201,
+                "User registered successfully.",
+                new { Token = token.Token, Expiry = token.ExpiresAt, UserId = appUser.Id, Email = appUser.Email }
+            );
         }
+
         public async Task<ResponseDto> LoginAsync(LoginDto loginDto)
         {
             var user = await _userManager.FindByEmailAsync(loginDto.Email);
             if (user == null)
             {
-                return new ResponseDto
-                {
-                    IsSucceeded = false,
-                    Message = $"This email: {loginDto.Email} isn't exist, Please register first",
-                    Status = 404
-                };
+                return ResponseDto.Failure(404, $"This email: {loginDto.Email} isn't exist, Please register first");
             }
 
             var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
             if (!result)
             {
-                return new ResponseDto
-                {
-                    IsSucceeded = false,
-                    Message = "Invalid email or password.",
-                    Status = 401
-                };
+                return ResponseDto.Failure(401, "Invalid email or password.");
             }
+
             var token = await GenerateJwtTokenAsync(user);
 
-            return new ResponseDto
-            {
-                IsSucceeded = true,
-                Status = 200,
-                Message = "Login successful.",
-                Model = new { Token = token.Token, Expiry = token.ExpiresAt, UserId = user.Id, Email = user.Email }
-            };
+            return ResponseDto.Success(
+                200,
+                "Login successful.",
+                new { Token = token.Token, Expiry = token.ExpiresAt, UserId = user.Id, Email = user.Email }
+            );
         }
 
+        public async Task<ResponseDto> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return ResponseDto.Failure(404, "User not found.");
+            }
+
+            var result = await _userManager.ChangePasswordAsync(
+                user,
+                changePasswordDto.CurrentPassword,
+                changePasswordDto.NewPassword
+            );
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "Password change failed.", errors);
+            }
+
+            return ResponseDto.Success(200, "Password changed successfully.");
+        }
+
+        public async Task<ResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+        {
+            var user = await _userManager.FindByEmailAsync(forgotPasswordDto.Email);
+            if (user == null)
+            {
+                return ResponseDto.Success(
+                    200,
+                    "If the email exists, a password reset link has been sent."
+                );
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            await _emailService.SendEmailAsync(
+                user.Email!,
+                "Password Reset",
+                $"Use this token to reset your password: {token}"
+            );
+            return ResponseDto.Success(
+                200,
+                "If the email exists, a password reset link has been sent."
+            );
+        }
+
+        public async Task<ResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+        {
+            var user = await _userManager.FindByEmailAsync(resetPasswordDto.Email);
+            if (user == null)
+            {
+                return ResponseDto.Failure(400, "Invalid reset request.");
+            }
 
 
+            var result = await _userManager.ResetPasswordAsync(user, resetPasswordDto.Token, resetPasswordDto.NewPassword);
 
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "Password reset failed.", errors);
+            }
+
+            return ResponseDto.Success(200, "Password reset successfully.");
+        }
 
         public async Task<AuthResponseDto> GenerateJwtTokenAsync(ApplicationUser user)
         {
@@ -101,7 +150,8 @@ namespace ECommerce.Services.Implementations
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Email, user.Email!)
+                new Claim(ClaimTypes.Email, user.Email!),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
             };
 
             claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
@@ -123,6 +173,5 @@ namespace ECommerce.Services.Implementations
                 ExpiresAt = token.ValidTo
             };
         }
-
     }
 }

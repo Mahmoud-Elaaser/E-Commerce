@@ -23,7 +23,7 @@ namespace ECommerce.Dependencies
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
                 //options.UseSqlServer(configuration.GetConnectionString("MonsterConnection"));
             });
-            services.AddIdentity<ApplicationUser, IdentityRole>()
+            services.AddIdentity<ApplicationUser, IdentityRole<int>>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
 

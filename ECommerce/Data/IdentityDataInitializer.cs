@@ -19,7 +19,7 @@ namespace ECommerce.Data
             using var scope = serviceProvider.CreateScope();
             var scopedProvider = scope.ServiceProvider;
 
-            var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
             var userManager = scopedProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var adminOptions = scopedProvider.GetRequiredService<IOptions<AdminOptions>>();
 
@@ -30,7 +30,7 @@ namespace ECommerce.Data
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                    await roleManager.CreateAsync(new IdentityRole<int>(roleName));
                 }
             }
 

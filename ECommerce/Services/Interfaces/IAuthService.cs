@@ -8,9 +8,9 @@ namespace ECommerce.Services.Interfaces
     {
         Task<ResponseDto> RegisterAsync(RegisterDto registerDto);
         Task<ResponseDto> LoginAsync(LoginDto loginDto);
-
-
-
+        Task<ResponseDto> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto);
+        Task<ResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
+        Task<ResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
         Task<AuthResponseDto> GenerateJwtTokenAsync(ApplicationUser user);
     }
 }
