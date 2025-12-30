@@ -31,6 +31,28 @@ namespace ECommerce.Controllers
             return StatusCode(result.Status, result);
         }
 
+        [HttpPost("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailDto confirmEmailDto)
+        {
+            var result = await _authService.ConfirmEmailAsync(confirmEmailDto);
+
+            if (!result.IsSucceeded)
+                return BadRequest(result);
+
+            return StatusCode(result.Status, result.Message);
+        }
+
+        [HttpPost("resend-confirmation-email")]
+        public async Task<IActionResult> ResendConfirmationEmail([FromBody] ResendConfirmationEmailDto resendDto)
+        {
+            var result = await _authService.ResendConfirmationEmailAsync(resendDto);
+
+            if (!result.IsSucceeded)
+                return BadRequest(result);
+
+            return StatusCode(result.Status, result.Message);
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
@@ -42,7 +64,7 @@ namespace ECommerce.Controllers
             if (!result.IsSucceeded)
                 return StatusCode(result.Status, result);
 
-            return Ok(result);
+            return StatusCode(result.Status, result);
         }
 
         [Authorize]
@@ -61,7 +83,7 @@ namespace ECommerce.Controllers
             if (!result.IsSucceeded)
                 return StatusCode(result.Status, result);
 
-            return Ok(result.Message);
+            return StatusCode(result.Status, result.Message);
         }
 
         [HttpPost("forgot-password")]
@@ -72,7 +94,7 @@ namespace ECommerce.Controllers
 
             var result = await _authService.ForgotPasswordAsync(forgotPasswordDto);
 
-            return Ok(result.Message);
+            return StatusCode(result.Status, result.Message);
         }
 
         [HttpPost("reset-password")]
@@ -86,7 +108,7 @@ namespace ECommerce.Controllers
             if (!result.IsSucceeded)
                 return BadRequest(result);
 
-            return Ok(result.Message);
+            return StatusCode(result.Status, result.Message);
         }
 
         [Authorize(Roles = "Admin")]
@@ -101,7 +123,7 @@ namespace ECommerce.Controllers
             if (!result.IsSucceeded)
                 return BadRequest(result);
 
-            return Ok(result.Message);
+            return StatusCode(result.Status, result.Message);
         }
 
         [Authorize(Roles = "Admin")]
@@ -116,7 +138,7 @@ namespace ECommerce.Controllers
             if (!result.IsSucceeded)
                 return BadRequest(result);
 
-            return Ok(result.Message);
+            return StatusCode(result.Status, result.Message);
         }
     }
 }

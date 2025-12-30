@@ -7,6 +7,8 @@ namespace ECommerce.Services.Interfaces
     public interface IAuthService
     {
         Task<ResponseDto> RegisterAsync(RegisterDto registerDto);
+        Task<ResponseDto> ConfirmEmailAsync(ConfirmEmailDto confirmEmailDto);
+        Task<ResponseDto> ResendConfirmationEmailAsync(ResendConfirmationEmailDto resendDto);
         Task<ResponseDto> LoginAsync(LoginDto loginDto);
         Task<ResponseDto> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto);
         Task<ResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);

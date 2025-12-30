@@ -45,28 +45,85 @@ namespace ECommerce.Services.Implementations
             }
 
             await _userManager.AddToRoleAsync(appUser, "User");
-            var token = await GenerateJwtTokenAsync(appUser);
+
+            /// Generate email confirmation token
+            var confirmationToken = await _userManager.GenerateEmailConfirmationTokenAsync(appUser);
+
+            await _emailService.SendEmailAsync(
+                appUser.Email!,
+                "Confirm Your Email",
+                $"Please confirm your email by using this token: {confirmationToken} \n\n  and your ID is: {appUser.Id}"
+            );
 
             return ResponseDto.Success(
                 201,
                 "User registered successfully.",
-                new { Token = token.Token, Expiry = token.ExpiresAt, UserId = appUser.Id, Email = appUser.Email }
+                new { UserId = appUser.Id, Email = appUser.Email }
             );
         }
 
+        public async Task<ResponseDto> ConfirmEmailAsync(ConfirmEmailDto confirmEmailDto)
+        {
+            var user = await _userManager.FindByIdAsync(confirmEmailDto.UserId);
+            if (user == null)
+                return ResponseDto.Failure(404, "User not found.");
+
+            if (user.EmailConfirmed)
+                return ResponseDto.Failure(400, "Email already confirmed.");
+
+            var result = await _userManager.ConfirmEmailAsync(user, confirmEmailDto.Token);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "Email confirmation failed.", errors);
+            }
+
+            return ResponseDto.Success(200, "Email confirmed successfully. You can now login.");
+        }
+
+        public async Task<ResponseDto> ResendConfirmationEmailAsync(ResendConfirmationEmailDto resendDto)
+        {
+            var user = await _userManager.FindByEmailAsync(resendDto.Email);
+            if (user == null)
+            {
+                // Don't reveal if user exists or not for security
+                return ResponseDto.Success(
+                    200,
+                    "If the email exists and is not confirmed, a confirmation email has been sent."
+                );
+            }
+
+            if (user.EmailConfirmed)
+                return ResponseDto.Failure(400, "Email already confirmed.");
+
+            var confirmationToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            await _emailService.SendEmailAsync(
+                user.Email!,
+                "Confirm Your Email",
+                $"Please confirm your email by using this token: {confirmationToken}\n\nUser ID: {user.Id}"
+            );
+
+            return ResponseDto.Success(
+                200,
+                "If the email exists and is not confirmed, a confirmation email has been sent."
+            );
+        }
         public async Task<ResponseDto> LoginAsync(LoginDto loginDto)
         {
             var user = await _userManager.FindByEmailAsync(loginDto.Email);
             if (user == null)
-            {
-                return ResponseDto.Failure(404, $"This email: {loginDto.Email} isn't exist, Please register first");
-            }
+                return ResponseDto.Failure(404, $"This email: {loginDto.Email} doesn't exist");
+
+            var isConfirmed = await _userManager.IsEmailConfirmedAsync(user);
+            if (!isConfirmed)
+                return ResponseDto.Failure(403, "Email not confirmed. Please confirm your email before logging in.");
+
 
             var result = await _userManager.CheckPasswordAsync(user, loginDto.Password);
             if (!result)
-            {
                 return ResponseDto.Failure(401, "Invalid email or password.");
-            }
 
             var token = await GenerateJwtTokenAsync(user);
 
