@@ -11,6 +11,8 @@ namespace ECommerce.Services.Interfaces
         Task<ResponseDto> ChangePasswordAsync(string userId, ChangePasswordDto changePasswordDto);
         Task<ResponseDto> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
         Task<ResponseDto> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+        Task<ResponseDto> AssignRoleAsync(AssignRoleDto assignRoleDto);
+        Task<ResponseDto> RemoveRoleAsync(RemoveRoleDto removeRoleDto);
         Task<AuthResponseDto> GenerateJwtTokenAsync(ApplicationUser user);
     }
 }

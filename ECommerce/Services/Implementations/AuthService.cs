@@ -118,6 +118,7 @@ namespace ECommerce.Services.Implementations
                 "Password Reset",
                 $"Use this token to reset your password: {token}"
             );
+
             return ResponseDto.Success(
                 200,
                 "If the email exists, a password reset link has been sent."
@@ -128,10 +129,7 @@ namespace ECommerce.Services.Implementations
         {
             var user = await _userManager.FindByEmailAsync(resetPasswordDto.Email);
             if (user == null)
-            {
                 return ResponseDto.Failure(400, "Invalid reset request.");
-            }
-
 
             var result = await _userManager.ResetPasswordAsync(user, resetPasswordDto.Token, resetPasswordDto.NewPassword);
 
@@ -142,6 +140,54 @@ namespace ECommerce.Services.Implementations
             }
 
             return ResponseDto.Success(200, "Password reset successfully.");
+        }
+
+        public async Task<ResponseDto> AssignRoleAsync(AssignRoleDto assignRoleDto)
+        {
+            var user = await _userManager.FindByIdAsync(assignRoleDto.UserId);
+            if (user == null)
+                return ResponseDto.Failure(404, "User not found.");
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (userRoles.Contains(assignRoleDto.RoleName))
+                return ResponseDto.Failure(400, $"User already has the '{assignRoleDto.RoleName}' role.");
+
+            var result = await _userManager.AddToRoleAsync(user, assignRoleDto.RoleName);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "Failed to assign role.", errors);
+            }
+
+            return ResponseDto.Success(
+                200,
+                $"Role '{assignRoleDto.RoleName}' assigned successfully to user '{user.Email}'."
+            );
+        }
+
+        public async Task<ResponseDto> RemoveRoleAsync(RemoveRoleDto removeRoleDto)
+        {
+            var user = await _userManager.FindByIdAsync(removeRoleDto.UserId);
+            if (user == null)
+                return ResponseDto.Failure(404, "User not found.");
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (!userRoles.Contains(removeRoleDto.RoleName))
+                return ResponseDto.Failure(400, $"User does not have the '{removeRoleDto.RoleName}' role.");
+
+            var result = await _userManager.RemoveFromRoleAsync(user, removeRoleDto.RoleName);
+
+            if (!result.Succeeded)
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                return ResponseDto.ValidationFailure(400, "Failed to remove role.", errors);
+            }
+
+            return ResponseDto.Success(
+                200,
+                $"Role '{removeRoleDto.RoleName}' removed successfully from user '{user.Email}'."
+            );
         }
 
         public async Task<AuthResponseDto> GenerateJwtTokenAsync(ApplicationUser user)

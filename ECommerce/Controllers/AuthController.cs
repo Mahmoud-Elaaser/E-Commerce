@@ -88,5 +88,35 @@ namespace ECommerce.Controllers
 
             return Ok(result.Message);
         }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("assign-role")]
+        public async Task<IActionResult> AssignRole([FromBody] AssignRoleDto assignRoleDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _authService.AssignRoleAsync(assignRoleDto);
+
+            if (!result.IsSucceeded)
+                return BadRequest(result);
+
+            return Ok(result.Message);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("remove-role")]
+        public async Task<IActionResult> RemoveRole([FromBody] RemoveRoleDto removeRoleDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _authService.RemoveRoleAsync(removeRoleDto);
+
+            if (!result.IsSucceeded)
+                return BadRequest(result);
+
+            return Ok(result.Message);
+        }
     }
 }
