@@ -1,0 +1,18 @@
+﻿using ECommerce.DTOs.Auth;
+using FluentValidation;
+
+namespace ECommerce.Validators.Auth
+{
+    public class RemoveRoleDtoValidator : AbstractValidator<RemoveRoleDto>
+    {
+        public RemoveRoleDtoValidator()
+        {
+            RuleFor(x => x.UserId)
+                .NotEmpty().WithMessage("User ID is required");
+
+            RuleFor(x => x.RoleName)
+                .NotEmpty().WithMessage("Role name is required")
+                .MaximumLength(50).WithMessage("Role name cannot exceed 50 characters");
+        }
+    }
+}

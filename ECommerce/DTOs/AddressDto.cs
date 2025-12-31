@@ -1,13 +1,8 @@
 ﻿namespace ECommerce.DTOs
 {
-    public class AddressDto
-    {
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
+    public record AddressDto(
+        string FirstName, string LastName,
+        string Street, string City, string Country
+    );
 
-        public string Street { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
-
-        public string Country { get; set; } = string.Empty;
-    }
 }

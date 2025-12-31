@@ -1,5 +1,6 @@
 ﻿using ECommerce.DTOs.Basket;
 using ECommerce.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ECommerce.Controllers
@@ -16,6 +17,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost("{basketId}")]
+        [Authorize]
         public async Task<ActionResult<CustomerBasketDto>> CreateOrUpdatePaymentntent(string basketId)
         => Ok(await _paymentService.CreateOrUpdatePaymentIntentAsync(basketId));
 

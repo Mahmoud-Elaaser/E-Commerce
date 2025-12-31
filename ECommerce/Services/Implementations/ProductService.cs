@@ -33,10 +33,6 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var validationResult = await ValidateProductDtoAsync(addProductDto);
-                if (validationResult != null)
-                    return validationResult;
-
                 var existingProduct = await CheckIfProductNameExistsAsync(addProductDto.Name);
                 if (existingProduct)
                     return ResponseDto.Failure(400, $"Product '{addProductDto.Name}' already exists");
@@ -108,134 +104,104 @@ namespace ECommerce.Services.Implementations
 
         public async Task<ResponseDto> GetAllProductsAsync(ProductPaginationParams paginationParams)
         {
-            try
-            {
-                var spec = new ProductSpecification(
-                    searchTerm: paginationParams.SearchTerm,
-                    brandId: paginationParams.BrandId,
-                    typeId: paginationParams.TypeId,
-                    minPrice: paginationParams.MinPrice,
-                    maxPrice: paginationParams.MaxPrice,
-                    inStockOnly: paginationParams.InStockOnly,
-                    includeBrand: paginationParams.IncludeBrand,
-                    includeType: paginationParams.IncludeType);
 
-                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+            var spec = new ProductSpecification(
+                searchTerm: paginationParams.SearchTerm,
+                brandId: paginationParams.BrandId,
+                typeId: paginationParams.TypeId,
+                minPrice: paginationParams.MinPrice,
+                maxPrice: paginationParams.MaxPrice,
+                inStockOnly: paginationParams.InStockOnly,
+                includeBrand: paginationParams.IncludeBrand,
+                includeType: paginationParams.IncludeType
+            );
 
-                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+            spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
 
-                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
-                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+            spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
 
-                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+            var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+            var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
 
-                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
-                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+            var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
 
-                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving all products");
-                return ResponseDto.Failure(500, "An error occurred while retrieving products");
-            }
+            var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+            var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+
+            return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
         }
 
         public async Task<ResponseDto> GetProductByIdAsync(int productId, bool includeBrand = false, bool includeType = false)
         {
-            try
-            {
-                var spec = new ProductSpecification(productId, includeBrand, includeType);
-                var product = await _unitOfWork.Repository<Product>().GetAsyncWithSpec(spec);
-                if (product == null)
-                    return ResponseDto.Failure(404, $"Product with ID {productId} not found");
+            var spec = new ProductSpecification(productId, includeBrand, includeType);
+            var product = await _unitOfWork.Repository<Product>().GetAsyncWithSpec(spec);
+            if (product == null)
+                return ResponseDto.Failure(404, $"Product with ID {productId} not found");
 
-                var productDto = _mapper.Map<ProductDto>(product);
+            var productDto = _mapper.Map<ProductDto>(product);
 
-                return ResponseDto.Success(200, "Product retrieved successfully", productDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving product with ID: {ProductId}", productId);
-                return ResponseDto.Failure(500, "An error occurred while retrieving the product");
-            }
+            return ResponseDto.Success(200, "Product retrieved successfully", productDto);
+
         }
 
         public async Task<ResponseDto> GetProductsByBrandAsync(int brandId, PaginationParams paginationParams)
         {
-            try
-            {
-                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(brandId);
-                if (brand == null)
-                    return ResponseDto.Failure(404, $"Product brand with ID {brandId} not found");
+            var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(brandId);
+            if (brand == null)
+                return ResponseDto.Failure(404, $"Product brand with ID {brandId} not found");
 
-                var spec = new ProductSpecification(
-                    searchTerm: paginationParams.SearchTerm,
-                    brandId: brandId,
-                    includeBrand: true,
-                    includeType: true);
+            var spec = new ProductSpecification(
+                searchTerm: paginationParams.SearchTerm,
+                brandId: brandId,
+                includeBrand: true,
+                includeType: true
+            );
 
-                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
-                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+            spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+            spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
 
-                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
-                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+            var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+            var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
 
-                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+            var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
 
-                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
-                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+            var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+            var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
 
-                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving products by brand ID: {BrandId}", brandId);
-                return ResponseDto.Failure(500, "An error occurred while retrieving products");
-            }
+            return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
         }
 
         public async Task<ResponseDto> GetProductsByTypeAsync(int typeId, PaginationParams paginationParams)
         {
-            try
-            {
-                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(typeId);
-                if (type == null)
-                    return ResponseDto.Failure(404, $"Product type with ID {typeId} not found");
+            var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(typeId);
+            if (type == null)
+                return ResponseDto.Failure(404, $"Product type with ID {typeId} not found");
 
-                var spec = new ProductSpecification(
-                    searchTerm: paginationParams.SearchTerm,
-                    typeId: typeId,
-                    includeBrand: true,
-                    includeType: true);
+            var spec = new ProductSpecification(
+                searchTerm: paginationParams.SearchTerm,
+                typeId: typeId,
+                includeBrand: true,
+                includeType: true);
 
-                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
-                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+            spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+            spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
 
-                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
-                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+            var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+            var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
 
-                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+            var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
 
-                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
-                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+            var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+            var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
 
-                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving products by type ID: {TypeId}", typeId);
-                return ResponseDto.Failure(500, "An error occurred while retrieving products");
-            }
+            return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
+
         }
 
         public async Task<ResponseDto> UpdateProductAsync(int productId, AddOrUpdateProductDto updateProductDto)
         {
             try
             {
-                var validationResult = await ValidateProductDtoAsync(updateProductDto);
-                if (validationResult != null)
-                    return validationResult;
 
                 var existingProduct = await _unitOfWork.Repository<Product>().GetByIdAsync(productId);
                 if (existingProduct == null)
@@ -286,34 +252,27 @@ namespace ECommerce.Services.Implementations
 
         public async Task<ResponseDto> SearchProductsAsync(string searchTerm, PaginationParams paginationParams)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(searchTerm))
-                    return ResponseDto.Failure(400, "Search term cannot be empty");
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return ResponseDto.Failure(400, "Search term cannot be empty");
 
-                var spec = new ProductSpecification(
-                    searchTerm: searchTerm,
-                    includeBrand: true,
-                    includeType: true);
+            var spec = new ProductSpecification(
+                searchTerm: searchTerm,
+                includeBrand: true,
+                includeType: true
+            );
 
-                spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
-                spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
+            spec.ApplySorting(paginationParams.SortBy, paginationParams.SortDescending);
+            spec.ApplyPagination(paginationParams.PageNumber, paginationParams.PageSize);
 
-                var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
-                var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
+            var products = await _unitOfWork.Repository<Product>().ListAsync(spec);
+            var totalCount = await _unitOfWork.Repository<Product>().CountAsync(spec);
 
-                var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
+            var productDtos = _mapper.Map<IEnumerable<ProductDto>>(products);
 
-                var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
-                var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
+            var metadata = new PaginationMetadata(totalCount, paginationParams.PageNumber, paginationParams.PageSize);
+            var paginationResult = new PaginationResponse<ProductDto>(productDtos, metadata);
 
-                return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error searching products with term: {SearchTerm}", searchTerm);
-                return ResponseDto.Failure(500, "An error occurred while searching products");
-            }
+            return ResponseDto.Success(200, "Products retrieved successfully", paginationResult);
         }
 
 
@@ -330,52 +289,6 @@ namespace ECommerce.Services.Implementations
             }
 
             return allProducts.Any(p => p.Name.Equals(productName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        private async Task<ResponseDto> ValidateProductDtoAsync(AddOrUpdateProductDto dto)
-        {
-            if (dto == null)
-                return ResponseDto.Failure(400, "Please enter valid data");
-
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(dto.Name))
-                errors.Add("Product name is required");
-            else if (dto.Name.Length > 200)
-                errors.Add("Product name cannot exceed 200 characters");
-
-            if (dto.Description != null && dto.Description.Length > 1000)
-                errors.Add("Product description cannot exceed 1000 characters");
-
-            if (dto.Price <= 0)
-                errors.Add("Product price must be greater than zero");
-
-            if (dto.ProductBrandId <= 0)
-            {
-                errors.Add("Valid product brand is required");
-            }
-            else
-            {
-                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(dto.ProductBrandId);
-                if (brand == null)
-                    errors.Add($"Product brand with ID {dto.ProductBrandId} does not exist");
-            }
-
-            if (dto.ProductTypeId <= 0)
-            {
-                errors.Add("Valid product type is required");
-            }
-            else
-            {
-                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(dto.ProductTypeId);
-                if (type == null)
-                    errors.Add($"Product type with ID {dto.ProductTypeId} does not exist");
-            }
-
-            if (errors.Any())
-                return ResponseDto.ValidationFailure(400, "Validation failed", errors);
-
-            return null;
         }
     }
 }

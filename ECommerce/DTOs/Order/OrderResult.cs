@@ -13,8 +13,6 @@
         public string DeliveryMethod { get; init; }
         public int? DeliveryMethodId { get; init; }
 
-        // OrderItem.Price * OrderItem.Quantity
-        // Total == Subtotal + DeliveryMethod.Price [ Derieved Atribute ] --> DTO OR Mapping Profile
         public decimal Subtotal { get; init; }
         public string PaymentIntentId { get; init; } = string.Empty;
 

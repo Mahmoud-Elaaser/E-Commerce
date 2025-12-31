@@ -31,7 +31,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateType([FromBody] CreateOrUpdateTypeDto dto)
         {
             var result = await _typeService.CreateTypeAsync(dto);

@@ -27,10 +27,6 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var validationResult = ValidateTypeDto(dto);
-                if (validationResult != null)
-                    return validationResult;
-
                 var existingType = await CheckIfTypeNameExistsAsync(dto.Name);
                 if (existingType)
                     return ResponseDto.Failure(400, $"Product type '{dto.Name}' already exists");
@@ -78,62 +74,35 @@ namespace ECommerce.Services.Implementations
 
         public async Task<ResponseDto> GetAllTypesAsync()
         {
-            try
-            {
-                var types = await _unitOfWork.Repository<ProductType>().ListAllAsync();
+            var types = await _unitOfWork.Repository<ProductType>().ListAllAsync();
 
-                var typeDtos = _mapper.Map<IEnumerable<ProductTypeDto>>(types);
+            var typeDtos = _mapper.Map<IEnumerable<ProductTypeDto>>(types);
 
-                return ResponseDto.Success(200, "Product types retrieved successfully", typeDtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving all product types");
-                return ResponseDto.Failure(500, "An error occurred while retrieving product types");
-            }
+            return ResponseDto.Success(200, "Product types retrieved successfully", typeDtos);
         }
 
         public async Task<ResponseDto> GetTypeByIdAsync(int id)
         {
-            try
-            {
-                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(id);
-                if (type == null)
-                    return ResponseDto.Failure(404, $"Product type with ID {id} not found");
+            var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(id);
+            if (type == null)
+                return ResponseDto.Failure(404, $"Product type with ID {id} not found");
 
-                var typeDto = _mapper.Map<ProductTypeDto>(type);
+            var typeDto = _mapper.Map<ProductTypeDto>(type);
 
-                return ResponseDto.Success(200, "Product type retrieved successfully", typeDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving product type with ID: {TypeId}", id);
-                return ResponseDto.Failure(500, "An error occurred while retrieving the product type");
-            }
+            return ResponseDto.Success(200, "Product type retrieved successfully", typeDto);
         }
 
         public async Task<bool> TypeExistsAsync(int id)
         {
-            try
-            {
-                var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(id);
-                return type != null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking if type exists with ID: {TypeId}", id);
-                return false;
-            }
+            var type = await _unitOfWork.Repository<ProductType>().GetByIdAsync(id);
+            return type != null;
+
         }
 
         public async Task<ResponseDto> UpdateTypeAsync(int id, CreateOrUpdateTypeDto dto)
         {
             try
             {
-                var validationResult = ValidateTypeDto(dto);
-                if (validationResult != null)
-                    return validationResult;
-
                 var existingType = await _unitOfWork.Repository<ProductType>().GetByIdAsync(id);
                 if (existingType == null)
                     return ResponseDto.Failure(404, $"Product type with ID {id} not found");
@@ -180,27 +149,6 @@ namespace ECommerce.Services.Implementations
             var allProducts = await _unitOfWork.Repository<Product>().ListAllAsync();
             return allProducts.Count(p => p.ProductTypeId == typeId);
         }
-
-
-
-        private ResponseDto ValidateTypeDto(CreateOrUpdateTypeDto dto)
-        {
-            if (dto == null)
-                return ResponseDto.Failure(400, "Please enter valid data");
-
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(dto.Name))
-                errors.Add("Product type name is required");
-            else if (dto.Name.Length > 100)
-                errors.Add("Product type name cannot exceed 100 characters");
-
-            if (errors.Any())
-                return ResponseDto.ValidationFailure(400, "Validation failed", errors);
-
-            return null;
-        }
-
 
     }
 }

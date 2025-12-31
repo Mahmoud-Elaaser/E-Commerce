@@ -1,17 +1,10 @@
 ﻿namespace ECommerce.DTOs.Product
 {
-    public class ProductDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public string? ImageUrl { get; set; }
-        public decimal Price { get; set; }
+    public record ProductDto(
+        int Id, string Name, string Description,
+        string? ImageUrl, decimal Price,
+        int ProductBrandId, string ProductBrandName,
+        int ProductTypeId, string ProductTypeName
+    );
 
-        public int ProductBrandId { get; set; }
-        public string ProductBrandName { get; set; }
-
-        public int ProductTypeId { get; set; }
-        public string ProductTypeName { get; set; }
-    }
 }

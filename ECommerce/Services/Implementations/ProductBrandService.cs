@@ -27,10 +27,6 @@ namespace ECommerce.Services.Implementations
         {
             try
             {
-                var validationResult = ValidateBrandDto(dto);
-                if (validationResult != null)
-                    return validationResult;
-
                 var existingBrand = await CheckIfBrandNameExistsAsync(dto.Name);
                 if (existingBrand)
                     return ResponseDto.Failure(400, $"Product brand '{dto.Name}' already exists");
@@ -78,62 +74,36 @@ namespace ECommerce.Services.Implementations
 
         public async Task<ResponseDto> GetAllBrandsAsync()
         {
-            try
-            {
-                var brands = await _unitOfWork.Repository<ProductBrand>().ListAllAsync();
 
-                var brandDtos = _mapper.Map<IEnumerable<ProductBrandDto>>(brands);
+            var brands = await _unitOfWork.Repository<ProductBrand>().ListAllAsync();
 
-                return ResponseDto.Success(200, "Product brands retrieved successfully", brandDtos);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving all product brands");
-                return ResponseDto.Failure(500, "An error occurred while retrieving product brands");
-            }
+            var brandDtos = _mapper.Map<IEnumerable<ProductBrandDto>>(brands);
+
+            return ResponseDto.Success(200, "Product brands retrieved successfully", brandDtos);
         }
 
         public async Task<ResponseDto> GetBrandByIdAsync(int id)
         {
-            try
-            {
-                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(id);
-                if (brand == null)
-                    return ResponseDto.Failure(404, $"Product brand with ID {id} not found");
 
-                var brandDto = _mapper.Map<ProductBrandDto>(brand);
+            var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(id);
+            if (brand == null)
+                return ResponseDto.Failure(404, $"Product brand with ID {id} not found");
 
-                return ResponseDto.Success(200, "Product brand retrieved successfully", brandDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving product brand with ID: {BrandId}", id);
-                return ResponseDto.Failure(500, "An error occurred while retrieving the product brand");
-            }
+            var mappedBrand = _mapper.Map<ProductBrandDto>(brand);
+
+            return ResponseDto.Success(200, "Product brand retrieved successfully", mappedBrand);
         }
 
         public async Task<bool> BrandExistsAsync(int id)
         {
-            try
-            {
-                var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(id);
-                return brand != null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking if brand exists with ID: {BrandId}", id);
-                return false;
-            }
+            var brand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(id);
+            return brand != null;
         }
 
         public async Task<ResponseDto> UpdateBrandAsync(int id, CreateOrUpdateBrandDto dto)
         {
             try
             {
-                var validationResult = ValidateBrandDto(dto);
-                if (validationResult != null)
-                    return validationResult;
-
                 var existingBrand = await _unitOfWork.Repository<ProductBrand>().GetByIdAsync(id);
                 if (existingBrand == null)
                     return ResponseDto.Failure(404, $"Product brand with ID {id} not found");
@@ -179,22 +149,5 @@ namespace ECommerce.Services.Implementations
             return allProducts.Count(p => p.ProductBrandId == brandId);
         }
 
-        private ResponseDto ValidateBrandDto(CreateOrUpdateBrandDto dto)
-        {
-            if (dto == null)
-                return ResponseDto.Failure(400, "Please enter valid data");
-
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(dto.Name))
-                errors.Add("Product brand name is required");
-            else if (dto.Name.Length > 100)
-                errors.Add("Product brand name cannot exceed 100 characters");
-
-            if (errors.Any())
-                return ResponseDto.ValidationFailure(400, "Validation failed", errors);
-
-            return null;
-        }
     }
 }

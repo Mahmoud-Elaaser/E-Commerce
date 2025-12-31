@@ -1,7 +1,4 @@
 ﻿namespace ECommerce.DTOs.Product
 {
-    public class UpdateStockDto
-    {
-        public int Quantity { get; set; }
-    }
+    public record UpdateStockDto(int Quantity);
 }

@@ -6,9 +6,11 @@ using ECommerce.Repositories.Interfaces;
 using ECommerce.Services.Implementations;
 using ECommerce.Services.Interfaces;
 using ECommerce.Settings;
+using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Reflection;
 using ProductService = ECommerce.Services.Implementations.ProductService;
 
 namespace ECommerce.Dependencies
@@ -57,6 +59,8 @@ namespace ECommerce.Dependencies
             services.Configure<StripeOptions>(configuration.GetSection("StripeOptions"));
             services.Configure<EmailOptions>(configuration.GetSection("EmailOptions"));
 
+            /// Fluent Validation Registration
+            services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
         }
 
 

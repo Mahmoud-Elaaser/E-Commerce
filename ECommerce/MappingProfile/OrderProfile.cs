@@ -29,7 +29,7 @@ namespace ECommerce.MappingProfile
                   .ForMember(d => d.Subtotal, o => o.MapFrom(s => s.SubTotal))
                   .ForMember(d => d.UserEmail, o => o.MapFrom(s => s.UserEmail))
                   .ForMember(d => d.Id, o => o.MapFrom(s => s.Id))
-                  .ForMember(d => d.ShippingAddress, o => o.MapFrom(s => s.ShippingAddress));
+                  .ForMember(d => d.ShippingAddress, o => o.MapFrom(s => s.ShippingAddress)).ReverseMap();
 
 
             CreateMap<DeliveryMethod, DeliveryMethodResult>()
@@ -42,6 +42,15 @@ namespace ECommerce.MappingProfile
                 .ForMember(d => d.FirstName, o => o.MapFrom(s => s.FirstName))
                 .ForMember(d => d.LastName, o => o.MapFrom(s => s.LastName))
                 .ReverseMap();
+
+            CreateMap<OrderItem, OrderItemDto>()
+            .ConstructUsing(src => new OrderItemDto(
+                src.ProductItem.ProductId,
+                src.ProductItem.ProductName,
+                src.ProductItem.PictureUrl,
+                src.Price,
+                src.Quantity
+            ));
         }
     }
 }

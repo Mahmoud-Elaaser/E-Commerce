@@ -1,6 +1,7 @@
 ﻿using ECommerce.DTOs;
 using ECommerce.DTOs.Product;
 using ECommerce.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ECommerce.Controllers
@@ -38,7 +39,7 @@ namespace ECommerce.Controllers
 
 
         [HttpPost]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
@@ -61,7 +62,7 @@ namespace ECommerce.Controllers
 
 
         [HttpPut("{id}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]
@@ -76,7 +77,7 @@ namespace ECommerce.Controllers
 
 
         [HttpDelete("{id}")]
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ResponseDto), StatusCodes.Status401Unauthorized)]

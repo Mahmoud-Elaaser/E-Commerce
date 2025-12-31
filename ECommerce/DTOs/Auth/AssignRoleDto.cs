@@ -1,8 +1,5 @@
 ﻿namespace ECommerce.DTOs.Auth
 {
-    public class AssignRoleDto
-    {
-        public string UserId { get; set; } = string.Empty;
-        public string RoleName { get; set; } = string.Empty;
-    }
+    public record AssignRoleDto(string UserId, string RoleName);
+
 }
