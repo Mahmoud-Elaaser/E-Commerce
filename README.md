@@ -28,20 +28,25 @@ A full-featured e-commerce platform built with **ASP.NET Core 8**, providing a c
 
 ---
 
-## 🧰 Tech Stack
+## 🛠️ Technology Stack
 
-### Core Framework
-- **ASP.NET Core 8 Web API** 
-- **Entity Framework Core**
+### Backend
+- **Framework**: ASP.NET Core Web API  
+- **Language**: C#  
+- **ORM**: Entity Framework Core  
+- **Database**: SQL Server  
+- **Authentication**: JWT   
+- **Email Service**: MailKit & MimeKit  
+- **Object Mapping**: AutoMapper  
 
----
+
 
 ### Architecture & Patterns
 - **Specification Design Pattern** – Flexible querying with reusable specifications
 - **Unit of Work Pattern** – Manages database transactions and ensures data consistency
 - **Repository Pattern** – Abstracts data access logic
 
----
+
 
 ### Performance Optimization
 
@@ -50,23 +55,22 @@ A full-featured e-commerce platform built with **ASP.NET Core 8**, providing a c
 - **AutoMapper** - Reduces boilerplate code and improves mapping performance
 - **Specification Pattern** - Enables efficient database queries with EF Core
 
----
+
 
 ### Data & Validation
 - **LINQ** – Efficient data querying and manipulation
 - **AutoMapper** – Object-to-object mapping for DTOs
 - **FluentValidation** – Elegant validation rules for request models
 
----
+
 
 ### Payment Integration
 - **Stripe** – Secure payment processing
 - **Stripe Webhooks** – Real-time payment event handling
 
----
+
 
 ### Additional Features
-- **Pagination** – Efficient handling of large datasets
 - **Custom Exception Handling** – Centralized error management and user-friendly error responses
 
 ---
